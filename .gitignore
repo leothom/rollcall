@@ -1,0 +1,8 @@
+# Real class rosters contain student personal information (PIPL) and must
+# never be committed. Only fictional sample rosters belong in the repo.
+rosters/*.txt
+rosters/*.xlsx
+!rosters/sample-*.txt
+
+# Per-teacher data file (classes + pick history) — personal information.
+namewheel-data.json
