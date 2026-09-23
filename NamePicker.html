@@ -76,8 +76,10 @@
   .app {
     display: grid;
     grid-template-columns: 300px 1fr;
-    grid-template-rows: auto auto 1fr;
-    grid-template-areas: "side top" "side banner" "side main";
+    /* Bar sits at the BOTTOM: classrooms use touch screens and the top of
+       the board is out of reach for some teachers. */
+    grid-template-rows: 1fr auto auto;
+    grid-template-areas: "side main" "side banner" "side top";
     height: 100%;
     transition: grid-template-columns 0.25s ease;
   }
@@ -91,7 +93,7 @@
     align-items: center;
     gap: 12px;
     padding: 12px 18px;
-    border-bottom: 1px solid var(--border);
+    border-top: 1px solid var(--border);
     background: var(--surface);
   }
   .top .class-label {
@@ -112,8 +114,9 @@
   .iconbtn {
     display: grid;
     place-items: center;
-    width: 38px;
-    height: 38px;
+    /* 44px minimum touch target for fingers on the interactive board. */
+    width: 44px;
+    height: 44px;
     border-radius: 10px;
     border: 1px solid var(--border);
     background: var(--surface);
@@ -132,7 +135,7 @@
     padding: 9px 18px;
     font-size: 13px;
     background: color-mix(in srgb, var(--primary) 12%, var(--surface));
-    border-bottom: 1px solid var(--border);
+    border-top: 1px solid var(--border);
     grid-area: banner;
   }
   .banner .btn { padding: 5px 11px; font-size: 12.5px; }
@@ -463,7 +466,7 @@
 
   .toast {
     position: fixed;
-    bottom: 18px;
+    bottom: 88px; /* clear of the bottom bar */
     left: 50%;
     transform: translateX(-50%);
     background: var(--ink);
