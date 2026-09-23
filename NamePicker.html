@@ -7,8 +7,10 @@
 <!--
   Name Wheel — offline classroom random-name picker.
   One self-contained file: no network, no install, no dependencies.
-  Rosters are plain .txt files (one name per line) — open or drag them in.
+  Rosters are plain .txt files (one name per line) or SchoolPal 学生名单
+  .xlsx exports — open or drag them in.
   History/equity travels between computers via Export / Import (JSON).
+  UI is bilingual (English / 简体中文, 中 button); roster names are never translated.
 -->
 <style>
   :root {
@@ -140,7 +142,7 @@
     border-top: 1px solid var(--border);
   }
   .names:empty::after {
-    content: "No roster loaded yet.";
+    content: attr(data-empty);
     display: block;
     padding: 16px 10px;
     color: var(--muted);
@@ -372,8 +374,8 @@
       <button class="btn primary" id="loadBtn">Load roster…</button>
       <button class="btn" id="newClassBtn" title="Clear the current roster">New class</button>
     </div>
-    <p class="hint">Or drag a <strong>.txt</strong> file (one name per line) anywhere onto this window.</p>
-    <div class="names" id="nameList" aria-label="Roster"></div>
+    <p class="hint" id="hintText">Or drag a <strong>.txt</strong> or <strong>.xlsx</strong> file anywhere onto this window.</p>
+    <div class="names" id="nameList" aria-label="Roster" data-empty="No roster loaded yet."></div>
     <footer>
       <button class="btn" id="shuffleBtn">Shuffle</button>
       <button class="btn" id="resetBtn" title="Put removed names back on the wheel">Reset round</button>
@@ -386,6 +388,7 @@
     <span class="class-label" id="classLabel">No class loaded</span>
     <span class="count" id="countLabel"></span>
     <span class="spacer"></span>
+    <button class="iconbtn" id="langBtn" title="切换到中文">中</button>
     <button class="iconbtn" id="muteBtn" aria-pressed="false" title="Mute sounds">🔊</button>
     <button class="iconbtn" id="historyBtn" aria-pressed="false" title="Pick history and equity">📋</button>
     <button class="iconbtn" id="fsBtn" aria-pressed="false" title="Fullscreen (F)">⛶</button>
@@ -435,7 +438,7 @@
 
 <div class="drop-overlay">Drop roster (.txt) or history (.json)</div>
 <div class="toast" id="toast"></div>
-<input type="file" id="rosterInput" accept=".txt,text/plain" hidden>
+<input type="file" id="rosterInput" accept=".txt,.xlsx,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
 <input type="file" id="historyInput" accept=".json,application/json" hidden>
 
 <script>
@@ -452,7 +455,139 @@ const state = {
   history: [],           // { name, class, ts }  (ts = epoch ms)
   autoRemove: true,
   muted: false,
+  lang: "en",              // UI language: "en" | "zh" (roster names are never translated)
 };
+
+/* ============================== i18n ============================== */
+
+/* UI strings only — roster names, class labels, and history data stay as
+   entered. Chinese strings are Simplified Chinese. */
+const I18N = {
+  en: {
+    appTitle: "Name Wheel",
+    loadRoster: "Load roster…",
+    newClass: "New class",
+    newClassTitle: "Clear the current roster",
+    hint: 'Or drag a <strong>.txt</strong> or <strong>.xlsx</strong> file anywhere onto this window.',
+    rosterAria: "Roster",
+    noRosterYet: "No roster loaded yet.",
+    shuffle: "Shuffle",
+    resetRound: "Reset round",
+    resetRoundTitle: "Put removed names back on the wheel",
+    autoRemoveLabel: "Remove picked names",
+    sideToggleTitle: "Hide roster panel (good for the projector)",
+    noClass: "No class loaded",
+    countLabel: "{n} on wheel · {total} in class",
+    langTitle: "切换到中文",
+    muteTitle: "Mute sounds",
+    historyTitle: "Pick history and equity",
+    fsTitle: "Fullscreen (F)",
+    emptyNote: "Load a roster to build the wheel.<br>File &gt; one name per line, or a SchoolPal .xlsx.",
+    spin: "SPIN",
+    wheelChooses: "The wheel chooses",
+    removeFromWheel: "Remove from wheel",
+    keepOnWheel: "Keep on wheel",
+    keyhint: "Enter = highlighted choice  ·  Esc = keep",
+    historyHeading: "History & equity",
+    closeTitle: "Close",
+    exportJson: "Export JSON",
+    exportJsonTitle: "Save full history as a JSON file (keep it on the USB)",
+    exportCsv: "Export CSV",
+    exportCsvTitle: "Save history as a spreadsheet-friendly CSV",
+    importBtn: "Import…",
+    importTitle: "Merge a previously exported history.json",
+    clearBtn: "Clear",
+    picksPerStudent: "Picks per student — ",
+    allClasses: "all classes",
+    recentPicks: "Recent picks",
+    pickOne: "1 pick",
+    pickMany: "{n} picks",
+    tagPicked: "picked",
+    tagAbsent: "absent",
+    cbAbsentTitle: "Marked absent — click to include",
+    cbPresentTitle: "Present — click to mark absent",
+    dropText: "Drop roster (.txt / .xlsx) or history (.json)",
+    toastLoaded: "Loaded {n} names — {label}",
+    toastNoNames: "No names found in that file.",
+    toastXlsxFail: "Couldn't read that spreadsheet — is it a SchoolPal roster export?",
+    toastImported: "Imported {n} picks.",
+    toastNothingNew: "Nothing new to import.",
+    toastBadJson: "That file isn't valid JSON.",
+    toastNoHistory: "No history found in that file.",
+    toastAllBack: "All names back on the wheel.",
+    toastFsBlocked: "Fullscreen was blocked.",
+    confirmClearRoster: "Clear the current roster? (History is kept.)",
+    confirmClearHistory: "Delete all pick history? Export first if you want to keep it.",
+  },
+  zh: {
+    appTitle: "点名转盘",
+    loadRoster: "加载名单…",
+    newClass: "新班级",
+    newClassTitle: "清除当前名单",
+    hint: '也可将 <strong>.txt</strong> 或 <strong>.xlsx</strong> 文件拖到窗口任意位置。',
+    rosterAria: "名单",
+    noRosterYet: "尚未加载名单。",
+    shuffle: "打乱顺序",
+    resetRound: "重置本轮",
+    resetRoundTitle: "把已移除的名字放回转盘",
+    autoRemoveLabel: "移除已抽中的名字",
+    sideToggleTitle: "隐藏名单面板（适合投影）",
+    noClass: "未加载班级",
+    countLabel: "转盘上 {n} 人 · 全班 {total} 人",
+    langTitle: "Switch to English",
+    muteTitle: "静音",
+    historyTitle: "抽取历史与均衡",
+    fsTitle: "全屏 (F)",
+    emptyNote: "加载名单以生成转盘。<br>.txt 每行一个名字，或 SchoolPal 导出的 .xlsx。",
+    spin: "开转",
+    wheelChooses: "转盘选中",
+    removeFromWheel: "从转盘移除",
+    keepOnWheel: "留在转盘",
+    keyhint: "回车 = 高亮选项  ·  Esc = 保留",
+    historyHeading: "历史与均衡",
+    closeTitle: "关闭",
+    exportJson: "导出 JSON",
+    exportJsonTitle: "把完整历史保存为 JSON 文件（可放在U盘上）",
+    exportCsv: "导出 CSV",
+    exportCsvTitle: "把历史保存为可用 Excel 打开的 CSV",
+    importBtn: "导入…",
+    importTitle: "合并之前导出的 history.json",
+    clearBtn: "清空",
+    picksPerStudent: "每位学生被抽次数 — ",
+    allClasses: "所有班级",
+    recentPicks: "最近抽取",
+    pickOne: "1 次",
+    pickMany: "{n} 次",
+    tagPicked: "已抽",
+    tagAbsent: "缺席",
+    cbAbsentTitle: "已标记缺席 — 点击恢复",
+    cbPresentTitle: "在班 — 点击标记缺席",
+    dropText: "拖放名单 (.txt / .xlsx) 或历史 (.json)",
+    toastLoaded: "已加载 {n} 个名字 — {label}",
+    toastNoNames: "文件中没有找到名字。",
+    toastXlsxFail: "无法读取该表格 — 是 SchoolPal 导出的名单吗？",
+    toastImported: "已导入 {n} 条记录。",
+    toastNothingNew: "没有新的记录可导入。",
+    toastBadJson: "该文件不是有效的 JSON。",
+    toastNoHistory: "文件中没有找到历史记录。",
+    toastAllBack: "所有名字已回到转盘。",
+    toastFsBlocked: "全屏被浏览器阻止。",
+    confirmClearRoster: "清除当前名单？（历史会保留。）",
+    confirmClearHistory: "删除全部抽取历史？如需保留请先导出。",
+  },
+};
+
+function t(key, vars) {
+  const dict = I18N[state.lang] || I18N.en;
+  let s = dict[key] != null ? dict[key] : I18N.en[key];
+  if (s == null) return key;
+  if (vars) for (const k of Object.keys(vars)) s = s.replaceAll(`{${k}}`, vars[k]);
+  return s;
+}
+
+function dateLocale() {
+  return state.lang === "zh" ? "zh-CN" : [];
+}
 
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -471,6 +606,7 @@ function saveLocal() {
       history: state.history,
       autoRemove: state.autoRemove,
       muted: state.muted,
+      lang: state.lang,
     }));
   } catch (_) { /* storage unavailable — session-only mode */ }
 }
@@ -490,6 +626,7 @@ function loadLocal() {
       : [];
     state.autoRemove = s.autoRemove !== false;
     state.muted = !!s.muted;
+    state.lang = s.lang === "zh" ? "zh" : "en";
   } catch (_) { /* corrupted or blocked — start fresh */ }
 }
 
@@ -509,19 +646,180 @@ function parseRoster(text) {
   return names;
 }
 
+function applyRoster(names, label) {
+  if (names.length === 0) {
+    toast(t("toastNoNames"));
+    return;
+  }
+  state.classLabel = label;
+  state.roster = names.map((name) => ({ name, absent: false, removed: false }));
+  saveLocal();
+  renderAll();
+  toast(t("toastLoaded", { n: names.length, label: state.classLabel }));
+}
+
 function loadRosterFile(file) {
+  if (/\.xlsx$/i.test(file.name)) {
+    loadXlsxRoster(file).catch(() => toast(t("toastXlsxFail")));
+    return;
+  }
   file.text().then((text) => {
-    const names = parseRoster(text);
-    if (names.length === 0) {
-      toast("No names found in that file.");
-      return;
-    }
-    state.classLabel = file.name.replace(/\.[^.]+$/, "");
-    state.roster = names.map((name) => ({ name, absent: false, removed: false }));
-    saveLocal();
-    renderAll();
-    toast(`Loaded ${names.length} names — ${state.classLabel}`);
+    applyRoster(parseRoster(text), file.name.replace(/\.[^.]+$/, ""));
   });
+}
+
+/* ==================== SchoolPal .xlsx roster import ==================== */
+
+/* An .xlsx is a ZIP of XML files. To stay dependency-free and offline we
+   read the ZIP directory by hand and inflate entries with the browser's
+   built-in DecompressionStream — no library, no network. */
+
+function readZipEntries(u8) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  // End-of-central-directory record: scan backwards (comment can pad the tail).
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 22 - 65535); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("Not a ZIP file");
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const entries = new Map();
+  const dec = new TextDecoder();
+  for (let i = 0; i < count; i++) {
+    if (dv.getUint32(off, true) !== 0x02014b50) break;
+    const method = dv.getUint16(off + 10, true);
+    const csize = dv.getUint32(off + 20, true);
+    const nameLen = dv.getUint16(off + 28, true);
+    const extraLen = dv.getUint16(off + 30, true);
+    const commentLen = dv.getUint16(off + 32, true);
+    const localOff = dv.getUint32(off + 42, true);
+    const name = dec.decode(u8.subarray(off + 46, off + 46 + nameLen));
+    entries.set(name, { method, csize, localOff });
+    off += 46 + nameLen + extraLen + commentLen;
+  }
+  return entries;
+}
+
+async function zipEntryText(u8, entry) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  // The local header repeats name/extra with its own lengths.
+  const nameLen = dv.getUint16(entry.localOff + 26, true);
+  const extraLen = dv.getUint16(entry.localOff + 28, true);
+  const start = entry.localOff + 30 + nameLen + extraLen;
+  const data = u8.subarray(start, start + entry.csize);
+  if (entry.method === 0) return new TextDecoder().decode(data);
+  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Response(stream).text();
+}
+
+function colLetters(ref) {
+  return ref.replace(/\d+$/, "");
+}
+
+/* Returns rows as an array of { colLetter: cellText } maps for the first sheet. */
+async function readXlsxRows(file) {
+  const u8 = new Uint8Array(await file.arrayBuffer());
+  const entries = readZipEntries(u8);
+  const parser = new DOMParser();
+
+  const shared = [];
+  const sstEntry = entries.get("xl/sharedStrings.xml");
+  if (sstEntry) {
+    const doc = parser.parseFromString(await zipEntryText(u8, sstEntry), "application/xml");
+    for (const si of doc.getElementsByTagName("si")) {
+      let s = "";
+      for (const tEl of si.getElementsByTagName("t")) s += tEl.textContent;
+      shared.push(s);
+    }
+  }
+
+  const sheetName = [...entries.keys()]
+    .filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))[0];
+  if (!sheetName) throw new Error("No worksheet found");
+  const doc = parser.parseFromString(await zipEntryText(u8, entries.get(sheetName)), "application/xml");
+
+  const rows = [];
+  for (const rowEl of doc.getElementsByTagName("row")) {
+    const cells = {};
+    for (const c of rowEl.getElementsByTagName("c")) {
+      const ref = c.getAttribute("r") || "";
+      const type = c.getAttribute("t");
+      let text = "";
+      if (type === "inlineStr") {
+        text = c.textContent;
+      } else {
+        const v = c.getElementsByTagName("v")[0];
+        if (!v) continue;
+        text = type === "s" ? (shared[parseInt(v.textContent, 10)] || "") : v.textContent;
+      }
+      text = text.trim();
+      if (text) cells[colLetters(ref)] = text;
+    }
+    rows.push(cells);
+  }
+  return rows;
+}
+
+/* SchoolPal 学生名单 layout: metadata rows (年级/班级/总共), then a header
+   row whose first column is 学生/Students, then one student per row with the
+   name in that column. */
+function extractSchoolPalRoster(rows, fileName) {
+  let nameCol = null;
+  let startRow = 0;
+  outer:
+  for (let i = 0; i < rows.length; i++) {
+    for (const [col, txt] of Object.entries(rows[i])) {
+      if (/学生|students/i.test(txt) && /学号|student\s*no/i.test(Object.values(rows[i]).join(" "))) {
+        nameCol = col;
+        startRow = i + 1;
+        break outer;
+      }
+    }
+  }
+  if (nameCol === null) {
+    // Fallback: column A, skipping metadata-looking rows.
+    nameCol = "A";
+    startRow = 0;
+  }
+  const names = [];
+  for (let i = startRow; i < rows.length; i++) {
+    const v = rows[i][nameCol];
+    if (!v) continue;
+    if (/年级|班级|总共|grade|class|total|^学生|students/i.test(v)) continue;
+    if (/^\d+$/.test(v)) continue;
+    names.push(v);
+  }
+
+  // Class label: the 班级/Class metadata row; SchoolPal duplicates it as
+  // "X / X", so collapse identical halves. Fallback: the file name.
+  let label = "";
+  for (const cells of rows.slice(0, Math.max(startRow, 6))) {
+    const vals = Object.entries(cells).sort((a, b) => a[0].localeCompare(b[0])).map((e) => e[1]);
+    if (vals.length >= 2 && /^班级\b|^班级\s*\/|class/i.test(vals[0]) && !/学号/.test(vals.join(" "))) {
+      label = vals[1];
+      break;
+    }
+  }
+  if (label) {
+    const half = label.split(" / ");
+    if (half.length === 2 && half[0].trim() === half[1].trim()) label = half[0].trim();
+  } else {
+    label = fileNameToLabel(fileName);
+  }
+  return { names, label };
+}
+
+function fileNameToLabel(fileName) {
+  return fileName.replace(/\.[^.]+$/, "").replace(/[_\s]*(学生名单|students?)$/i, "");
+}
+
+async function loadXlsxRoster(file) {
+  const rows = await readXlsxRows(file);
+  const { names, label } = extractSchoolPalRoster(rows, file.name);
+  // Reuse the .txt pipeline for trimming and case-insensitive de-duplication.
+  applyRoster(parseRoster(names.join("\n")), label);
 }
 
 function shuffleRoster() {
@@ -831,9 +1129,9 @@ function exportCsv() {
 function importHistoryFile(file) {
   file.text().then((text) => {
     let data;
-    try { data = JSON.parse(text); } catch (_) { toast("That file isn't valid JSON."); return; }
+    try { data = JSON.parse(text); } catch (_) { toast(t("toastBadJson")); return; }
     const incoming = Array.isArray(data.history) ? data.history : Array.isArray(data) ? data : null;
-    if (!incoming) { toast("No history found in that file."); return; }
+    if (!incoming) { toast(t("toastNoHistory")); return; }
     const have = new Set(state.history.map((h) => h.ts + "|" + h.name));
     let added = 0;
     for (const h of incoming) {
@@ -848,7 +1146,7 @@ function importHistoryFile(file) {
     if (state.history.length > HISTORY_CAP) state.history.splice(0, state.history.length - HISTORY_CAP);
     saveLocal();
     renderHistory();
-    toast(added ? `Imported ${added} picks.` : "Nothing new to import.");
+    toast(added ? t("toastImported", { n: added }) : t("toastNothingNew"));
   });
 }
 
@@ -880,11 +1178,62 @@ const equityScope = document.getElementById("equityScope");
 const logList = document.getElementById("logList");
 const toastEl = document.getElementById("toast");
 
+/* Re-labels every static UI element from the dictionary. Dynamic text goes
+   through t() at render time; roster names and class labels are data and
+   pass through untranslated. */
+function applyI18n() {
+  document.documentElement.lang = state.lang === "zh" ? "zh-CN" : "en";
+  document.title = t("appTitle");
+  document.querySelector(".side header h1").textContent = t("appTitle");
+  document.getElementById("loadBtn").textContent = t("loadRoster");
+  const newClassBtn = document.getElementById("newClassBtn");
+  newClassBtn.textContent = t("newClass");
+  newClassBtn.title = t("newClassTitle");
+  document.getElementById("hintText").innerHTML = t("hint");
+  nameList.setAttribute("aria-label", t("rosterAria"));
+  nameList.dataset.empty = t("noRosterYet");
+  document.getElementById("shuffleBtn").textContent = t("shuffle");
+  const resetBtn = document.getElementById("resetBtn");
+  resetBtn.textContent = t("resetRound");
+  resetBtn.title = t("resetRoundTitle");
+  document.querySelector('label.opt input#autoRemove').parentElement.lastChild.textContent = " " + t("autoRemoveLabel");
+  sideToggle.title = t("sideToggleTitle");
+  const langBtn = document.getElementById("langBtn");
+  langBtn.textContent = state.lang === "zh" ? "EN" : "中";
+  langBtn.title = t("langTitle");
+  muteBtn.title = t("muteTitle");
+  historyBtn.title = t("historyTitle");
+  fsBtn.title = t("fsTitle");
+  emptyNote.innerHTML = t("emptyNote");
+  spinBtn.textContent = t("spin");
+  document.querySelector(".modal .label").textContent = t("wheelChooses");
+  removeBtn.textContent = t("removeFromWheel");
+  keepBtn.textContent = t("keepOnWheel");
+  document.querySelector(".modal .keyhint").textContent = t("keyhint");
+  document.querySelector("#drawer header h2").textContent = t("historyHeading");
+  document.getElementById("drawerClose").title = t("closeTitle");
+  const ej = document.getElementById("exportJson");
+  ej.textContent = t("exportJson");
+  ej.title = t("exportJsonTitle");
+  const ec = document.getElementById("exportCsv");
+  ec.textContent = t("exportCsv");
+  ec.title = t("exportCsvTitle");
+  const ib = document.getElementById("importBtn");
+  ib.textContent = t("importBtn");
+  ib.title = t("importTitle");
+  document.getElementById("clearHistory").textContent = t("clearBtn");
+  const eqHeading = equityList.previousElementSibling;
+  eqHeading.textContent = t("picksPerStudent");
+  eqHeading.append(equityScope);
+  logList.previousElementSibling.textContent = t("recentPicks");
+  document.querySelector(".drop-overlay").textContent = t("dropText");
+}
+
 function renderAll() {
-  classLabelEl.textContent = state.classLabel || "No class loaded";
+  classLabelEl.textContent = state.classLabel || t("noClass");
   const el = eligible().length;
   countLabel.textContent = state.roster.length
-    ? `${el} on wheel · ${state.roster.length} in class`
+    ? t("countLabel", { n: el, total: state.roster.length })
     : "";
   emptyNote.hidden = state.roster.length > 0;
   spinBtn.disabled = el === 0 || spinning;
@@ -902,7 +1251,7 @@ function renderNames() {
     const cb = document.createElement("input");
     cb.type = "checkbox";
     cb.checked = !r.absent;
-    cb.title = r.absent ? "Marked absent — click to include" : "Present — click to mark absent";
+    cb.title = r.absent ? t("cbAbsentTitle") : t("cbPresentTitle");
     cb.addEventListener("change", () => {
       r.absent = !cb.checked;
       saveLocal();
@@ -915,12 +1264,12 @@ function renderNames() {
     if (r.removed) {
       const tag = document.createElement("span");
       tag.className = "tag";
-      tag.textContent = "picked";
+      tag.textContent = t("tagPicked");
       row.append(tag);
     } else if (r.absent) {
       const tag = document.createElement("span");
       tag.className = "tag";
-      tag.textContent = "absent";
+      tag.textContent = t("tagAbsent");
       row.append(tag);
     }
     nameList.append(row);
@@ -929,7 +1278,7 @@ function renderNames() {
 
 function renderHistory() {
   const scope = state.classLabel || "";
-  equityScope.textContent = scope || "all classes";
+  equityScope.textContent = scope || t("allClasses");
   const inScope = scope ? state.history.filter((h) => h.class === scope) : state.history;
 
   const counts = new Map();
@@ -946,7 +1295,7 @@ function renderHistory() {
     div.className = "equity-row";
     div.innerHTML = `<span class="n"></span><span class="c"></span>`;
     div.querySelector(".n").textContent = name;
-    div.querySelector(".c").textContent = count === 1 ? "1 pick" : `${count} picks`;
+    div.querySelector(".c").textContent = count === 1 ? t("pickOne") : t("pickMany", { n: count });
     equityList.append(div);
   }
 
@@ -956,7 +1305,7 @@ function renderHistory() {
     div.className = "log-row";
     div.innerHTML = `<span class="n"></span><span class="t"></span>`;
     div.querySelector(".n").textContent = h.name;
-    div.querySelector(".t").textContent = new Date(h.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    div.querySelector(".t").textContent = new Date(h.ts).toLocaleString(dateLocale(), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
     logList.append(div);
   }
 }
@@ -979,7 +1328,7 @@ rosterInput.addEventListener("change", () => {
 });
 
 document.getElementById("newClassBtn").addEventListener("click", () => {
-  if (state.roster.length && !confirm("Clear the current roster? (History is kept.)")) return;
+  if (state.roster.length && !confirm(t("confirmClearRoster"))) return;
   state.classLabel = "";
   state.roster = [];
   saveLocal();
@@ -991,7 +1340,7 @@ document.getElementById("resetBtn").addEventListener("click", () => {
   state.roster.forEach((r) => { r.removed = false; });
   saveLocal();
   renderAll();
-  toast("All names back on the wheel.");
+  toast(t("toastAllBack"));
 });
 document.getElementById("autoRemove").addEventListener("change", (e) => {
   state.autoRemove = e.target.checked;
@@ -1022,6 +1371,13 @@ narrow.addEventListener("change", () => {
   setTimeout(drawWheel, 260);
 });
 
+document.getElementById("langBtn").addEventListener("click", () => {
+  state.lang = state.lang === "zh" ? "en" : "zh";
+  saveLocal();
+  applyI18n();
+  renderAll();
+});
+
 const muteBtn = document.getElementById("muteBtn");
 muteBtn.addEventListener("click", () => {
   state.muted = !state.muted;
@@ -1043,7 +1399,7 @@ document.getElementById("drawerClose").addEventListener("click", () => {
 const fsBtn = document.getElementById("fsBtn");
 function toggleFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen();
-  else document.documentElement.requestFullscreen().catch(() => toast("Fullscreen was blocked."));
+  else document.documentElement.requestFullscreen().catch(() => toast(t("toastFsBlocked")));
 }
 fsBtn.addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", () => {
@@ -1059,7 +1415,7 @@ historyInput.addEventListener("change", () => {
   historyInput.value = "";
 });
 document.getElementById("clearHistory").addEventListener("click", () => {
-  if (!confirm("Delete all pick history? Export first if you want to keep it.")) return;
+  if (!confirm(t("confirmClearHistory"))) return;
   state.history = [];
   saveLocal();
   renderHistory();
@@ -1119,6 +1475,7 @@ loadLocal();
 muteBtn.textContent = state.muted ? "🔇" : "🔊";
 muteBtn.setAttribute("aria-pressed", String(state.muted));
 syncModalPrimary();
+applyI18n();
 renderAll();
 </script>
 </body>
