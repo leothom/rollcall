@@ -1,0 +1,1125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Name Wheel</title>
+<!--
+  Name Wheel — offline classroom random-name picker.
+  One self-contained file: no network, no install, no dependencies.
+  Rosters are plain .txt files (one name per line) — open or drag them in.
+  History/equity travels between computers via Export / Import (JSON).
+-->
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --surface: #ffffff;
+    --ink: #1c1917;
+    --muted: #6b655e;
+    --border: #ddd6cc;
+    --primary: #b4552d;
+    --primary-ink: #ffffff;
+    --accent: #2d6a4f;
+    --danger: #b3362b;
+    --shadow: 0 10px 30px rgba(28, 25, 23, 0.12);
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    overflow: hidden;
+  }
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "side top" "side main";
+    height: 100%;
+    transition: grid-template-columns 0.25s ease;
+  }
+  .app.side-collapsed { grid-template-columns: 0 1fr; }
+  .app.side-collapsed .side { visibility: hidden; }
+
+  /* ---------- Top bar ---------- */
+  .top {
+    grid-area: top;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .top .class-label {
+    font-size: 18px;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .top .count {
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .top .spacer { flex: 1; }
+  .iconbtn {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 17px;
+    line-height: 1;
+  }
+  .iconbtn:hover { border-color: var(--muted); }
+  .iconbtn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+  /* ---------- Sidebar ---------- */
+  .side {
+    grid-area: side;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    min-height: 0;
+  }
+  .side header {
+    padding: 14px 16px 10px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .side header h1 { font-size: 15px; margin: 0; letter-spacing: 0.02em; }
+  .side .load {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px 10px;
+  }
+  .btn {
+    padding: 9px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 13.5px;
+    font-weight: 550;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+  .btn.primary:hover { filter: brightness(1.07); }
+  .hint {
+    padding: 0 16px 10px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .names {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 4px 8px;
+    border-top: 1px solid var(--border);
+  }
+  .names:empty::after {
+    content: "No roster loaded yet.";
+    display: block;
+    padding: 16px 10px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .name-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  .name-row:hover { background: var(--bg); }
+  .name-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+  .name-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .name-row.removed .nm { text-decoration: line-through; color: var(--muted); }
+  .name-row.absent .nm { color: var(--muted); font-style: italic; }
+  .name-row .tag { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .side footer {
+    padding: 12px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .side .opt {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+    padding-top: 2px;
+  }
+  .side .opt input { accent-color: var(--primary); width: 15px; height: 15px; }
+
+  /* ---------- Main / wheel ---------- */
+  .main {
+    grid-area: main;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    place-items: center;
+    min-height: 0;
+    padding: 14px;
+    gap: 8px;
+  }
+  .wheel-wrap {
+    position: relative;
+    width: min(78vh, 92%, 720px);
+    aspect-ratio: 1;
+  }
+  #wheel { width: 100%; height: 100%; display: block; }
+  .pointer {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 16px solid transparent;
+    border-right: 16px solid transparent;
+    border-top: 26px solid var(--ink);
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,0.25));
+  }
+  .empty-note {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: var(--muted);
+    font-size: 16px;
+    padding: 40px;
+  }
+  #spinBtn {
+    padding: 14px 46px;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--primary-ink);
+    border: none;
+    box-shadow: var(--shadow);
+    margin-bottom: 6px;
+  }
+  #spinBtn:hover:not(:disabled) { filter: brightness(1.07); }
+  #spinBtn:disabled { opacity: 0.45; cursor: default; }
+
+  /* ---------- Winner modal ---------- */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 25, 23, 0.55);
+    display: grid;
+    place-items: center;
+    z-index: 40;
+  }
+  .modal {
+    position: relative;
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 44px 56px 32px;
+    text-align: center;
+    max-width: min(88vw, 640px);
+    overflow: hidden;
+  }
+  .modal .label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+  }
+  .modal .winner {
+    font-size: clamp(34px, 7vw, 64px);
+    font-weight: 800;
+    margin: 10px 0 24px;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+  .modal .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .modal .actions .btn { font-size: 15px; padding: 11px 20px; }
+  .modal .keyhint { margin-top: 14px; font-size: 12px; color: var(--muted); }
+  #confetti { position: absolute; inset: 0; pointer-events: none; }
+
+  /* ---------- History drawer ---------- */
+  .drawer {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: min(360px, 92vw);
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .drawer header h2 { font-size: 15px; margin: 0; }
+  .drawer .tools { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .drawer .body { flex: 1; overflow-y: auto; padding: 10px 16px 20px; font-size: 13.5px; }
+  .drawer h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 14px 0 6px; }
+  .equity-row, .log-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .equity-row .n, .log-row .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .equity-row .c { font-variant-numeric: tabular-nums; color: var(--muted); }
+  .log-row .t { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Drag-drop overlay ---------- */
+  .drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: none;
+    place-items: center;
+    background: rgba(180, 85, 45, 0.14);
+    border: 4px dashed var(--primary);
+    font-size: 22px;
+    font-weight: 650;
+    color: var(--primary);
+    pointer-events: none;
+  }
+  body.dragging .drop-overlay { display: grid; }
+
+  .toast {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: var(--bg);
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 14px;
+    z-index: 70;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  [hidden] { display: none !important; }
+
+  /* Narrow windows (half-screen next to a gradebook): the roster panel
+     becomes an off-canvas overlay so the wheel keeps the full width. */
+  @media (max-width: 720px) {
+    .app, .app.side-collapsed { grid-template-columns: 0 1fr; }
+    .side {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: min(300px, 86vw);
+      z-index: 20;
+      box-shadow: var(--shadow);
+      transform: translateX(-100%);
+      transition: transform 0.22s ease;
+      visibility: visible;
+    }
+    .app.side-open .side { transform: translateX(0); }
+    .app.side-collapsed .side { visibility: visible; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .drawer, .app, .side { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="side">
+    <header>
+      <h1>Name Wheel</h1>
+    </header>
+    <div class="load">
+      <button class="btn primary" id="loadBtn">Load roster…</button>
+      <button class="btn" id="newClassBtn" title="Clear the current roster">New class</button>
+    </div>
+    <p class="hint">Or drag a <strong>.txt</strong> file (one name per line) anywhere onto this window.</p>
+    <div class="names" id="nameList" aria-label="Roster"></div>
+    <footer>
+      <button class="btn" id="shuffleBtn">Shuffle</button>
+      <button class="btn" id="resetBtn" title="Put removed names back on the wheel">Reset round</button>
+      <label class="opt"><input type="checkbox" id="autoRemove" checked> Remove picked names</label>
+    </footer>
+  </aside>
+
+  <div class="top">
+    <button class="iconbtn" id="sideToggle" aria-pressed="false" title="Hide roster panel (good for the projector)">☰</button>
+    <span class="class-label" id="classLabel">No class loaded</span>
+    <span class="count" id="countLabel"></span>
+    <span class="spacer"></span>
+    <button class="iconbtn" id="muteBtn" aria-pressed="false" title="Mute sounds">🔊</button>
+    <button class="iconbtn" id="historyBtn" aria-pressed="false" title="Pick history and equity">📋</button>
+    <button class="iconbtn" id="fsBtn" aria-pressed="false" title="Fullscreen (F)">⛶</button>
+  </div>
+
+  <main class="main">
+    <div class="wheel-wrap">
+      <canvas id="wheel"></canvas>
+      <div class="pointer" aria-hidden="true"></div>
+      <div class="empty-note" id="emptyNote">Load a roster to build the wheel.<br>File &gt; one name per line.</div>
+    </div>
+    <button id="spinBtn" disabled>SPIN</button>
+  </main>
+</div>
+
+<aside class="drawer" id="drawer" aria-label="Pick history">
+  <header>
+    <h2>History &amp; equity</h2>
+    <button class="iconbtn" id="drawerClose" title="Close">✕</button>
+  </header>
+  <div class="tools">
+    <button class="btn" id="exportJson" title="Save full history as a JSON file (keep it on the USB)">Export JSON</button>
+    <button class="btn" id="exportCsv" title="Save history as a spreadsheet-friendly CSV">Export CSV</button>
+    <button class="btn" id="importBtn" title="Merge a previously exported history.json">Import…</button>
+    <button class="btn" id="clearHistory">Clear</button>
+  </div>
+  <div class="body">
+    <h3>Picks per student — <span id="equityScope"></span></h3>
+    <div id="equityList"></div>
+    <h3>Recent picks</h3>
+    <div id="logList"></div>
+  </div>
+</aside>
+
+<div class="modal-backdrop" id="modalBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="winnerName">
+    <canvas id="confetti"></canvas>
+    <div class="label">The wheel chooses</div>
+    <div class="winner" id="winnerName"></div>
+    <div class="actions">
+      <button class="btn primary" id="removeBtn">Remove from wheel</button>
+      <button class="btn" id="keepBtn">Keep on wheel</button>
+    </div>
+    <div class="keyhint">Enter = highlighted choice &nbsp;·&nbsp; Esc = keep</div>
+  </div>
+</div>
+
+<div class="drop-overlay">Drop roster (.txt) or history (.json)</div>
+<div class="toast" id="toast"></div>
+<input type="file" id="rosterInput" accept=".txt,text/plain" hidden>
+<input type="file" id="historyInput" accept=".json,application/json" hidden>
+
+<script>
+"use strict";
+
+/* ============================== State ============================== */
+
+const STORAGE_KEY = "namewheel.v1";
+const HISTORY_CAP = 5000;
+
+const state = {
+  classLabel: "",
+  roster: [],            // { name, absent, removed }
+  history: [],           // { name, class, ts }  (ts = epoch ms)
+  autoRemove: true,
+  muted: false,
+};
+
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function eligible() {
+  return state.roster.filter((r) => !r.absent && !r.removed);
+}
+
+/* localStorage is a per-machine convenience only (it can be blocked on
+   file:// or wiped between classrooms) — every read/write is best-effort,
+   and Export/Import JSON is the real cross-computer path. */
+function saveLocal() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      classLabel: state.classLabel,
+      roster: state.roster,
+      history: state.history,
+      autoRemove: state.autoRemove,
+      muted: state.muted,
+    }));
+  } catch (_) { /* storage unavailable — session-only mode */ }
+}
+
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    state.classLabel = typeof s.classLabel === "string" ? s.classLabel : "";
+    state.roster = Array.isArray(s.roster)
+      ? s.roster.filter((r) => r && typeof r.name === "string")
+          .map((r) => ({ name: r.name, absent: !!r.absent, removed: !!r.removed }))
+      : [];
+    state.history = Array.isArray(s.history)
+      ? s.history.filter((h) => h && typeof h.name === "string" && typeof h.ts === "number")
+      : [];
+    state.autoRemove = s.autoRemove !== false;
+    state.muted = !!s.muted;
+  } catch (_) { /* corrupted or blocked — start fresh */ }
+}
+
+/* ============================== Roster ============================== */
+
+function parseRoster(text) {
+  const seen = new Set();
+  const names = [];
+  for (const line of text.split(/\r?\n/)) {
+    const name = line.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(name);
+  }
+  return names;
+}
+
+function loadRosterFile(file) {
+  file.text().then((text) => {
+    const names = parseRoster(text);
+    if (names.length === 0) {
+      toast("No names found in that file.");
+      return;
+    }
+    state.classLabel = file.name.replace(/\.[^.]+$/, "");
+    state.roster = names.map((name) => ({ name, absent: false, removed: false }));
+    saveLocal();
+    renderAll();
+    toast(`Loaded ${names.length} names — ${state.classLabel}`);
+  });
+}
+
+function shuffleRoster() {
+  // Fisher–Yates over the whole roster; the wheel shows eligible members
+  // in roster order, so this visibly reorders segments.
+  const a = state.roster;
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randInt(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  saveLocal();
+  renderAll();
+}
+
+/* ============================== Random ============================== */
+
+function randInt(n) {
+  // Rejection-sampled crypto randomness — no modulo bias, fair to every name.
+  const buf = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / n) * n;
+  let x;
+  do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= limit);
+  return x % n;
+}
+
+/* ============================== Wheel ============================== */
+
+const wheelCanvas = document.getElementById("wheel");
+const wctx = wheelCanvas.getContext("2d");
+let wheelAngle = 0;          // current rotation, radians
+let spinning = false;
+
+function segmentColor(i, n) {
+  // Golden-angle hue walk keeps neighbouring segments distinct at any count.
+  const hue = (i * 137.508) % 360;
+  return `hsl(${hue} 62% ${i % 2 ? 68 : 58}%)`;
+}
+
+function drawWheel() {
+  const dpr = window.devicePixelRatio || 1;
+  const cssSize = wheelCanvas.clientWidth;
+  if (wheelCanvas.width !== cssSize * dpr) {
+    wheelCanvas.width = cssSize * dpr;
+    wheelCanvas.height = cssSize * dpr;
+  }
+  const size = wheelCanvas.width;
+  const c = size / 2;
+  const radius = c - 6 * dpr;
+  const names = eligible();
+  wctx.clearRect(0, 0, size, size);
+  if (names.length === 0) return;
+
+  const seg = (Math.PI * 2) / names.length;
+  // Label size scales down as the class grows; floors at readable-from-rows-back.
+  const fontPx = Math.max(11, Math.min(26, (radius * seg) / 16)) * dpr;
+
+  wctx.save();
+  wctx.translate(c, c);
+  wctx.rotate(wheelAngle);
+  for (let i = 0; i < names.length; i++) {
+    const a0 = i * seg;
+    wctx.beginPath();
+    wctx.moveTo(0, 0);
+    wctx.arc(0, 0, radius, a0, a0 + seg);
+    wctx.closePath();
+    wctx.fillStyle = segmentColor(i, names.length);
+    wctx.fill();
+    wctx.strokeStyle = "rgba(255,255,255,0.85)";
+    wctx.lineWidth = 1.5 * dpr;
+    wctx.stroke();
+
+    wctx.save();
+    wctx.rotate(a0 + seg / 2);
+    wctx.textAlign = "right";
+    wctx.textBaseline = "middle";
+    wctx.font = `600 ${fontPx}px "Segoe UI", system-ui, sans-serif`;
+    wctx.fillStyle = "#231f1c";
+    const label = fitLabel(names[i].name, radius * 0.62);
+    wctx.fillText(label, radius * 0.94, 0);
+    wctx.restore();
+  }
+  // Hub.
+  wctx.beginPath();
+  wctx.arc(0, 0, 26 * dpr, 0, Math.PI * 2);
+  wctx.fillStyle = "#ffffff";
+  wctx.fill();
+  wctx.strokeStyle = "#d8d2c8";
+  wctx.lineWidth = 2 * dpr;
+  wctx.stroke();
+  wctx.restore();
+}
+
+function fitLabel(name, maxWidth) {
+  if (wctx.measureText(name).width <= maxWidth) return name;
+  let s = name;
+  while (s.length > 2 && wctx.measureText(s + "…").width > maxWidth) s = s.slice(0, -1);
+  return s + "…";
+}
+
+/* The pointer sits at 12 o'clock = angle -PI/2 in canvas space. A segment i
+   spans [i*seg, (i+1)*seg) before rotation; it sits under the pointer when
+   (-PI/2 - wheelAngle) mod 2PI falls inside it. */
+function pointerIndex(count) {
+  const seg = (Math.PI * 2) / count;
+  const a = ((-Math.PI / 2 - wheelAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+  return Math.floor(a / seg) % count;
+}
+
+function spin() {
+  const names = eligible();
+  if (spinning || names.length === 0) return;
+  const winnerIdx = randInt(names.length);
+  const winner = names[winnerIdx];
+
+  if (reducedMotion) {
+    // Instant, animation-free pick.
+    settleWheelOn(winnerIdx, names.length);
+    drawWheel();
+    finishPick(winner);
+    return;
+  }
+
+  spinning = true;
+  spinBtn.disabled = true;
+  audio.prime();
+
+  const seg = (Math.PI * 2) / names.length;
+  // Land the winner's segment centre under the pointer, with a little jitter
+  // so it doesn't always stop dead-centre.
+  const jitter = (Math.random() - 0.5) * seg * 0.7;
+  const targetMod = -Math.PI / 2 - (winnerIdx * seg + seg / 2) - jitter;
+  const current = wheelAngle;
+  const turns = 5 + Math.floor(Math.random() * 3);
+  const delta = ((targetMod - current) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+  const total = turns * Math.PI * 2 + delta;
+  const duration = 3800 + Math.random() * 900;
+  const start = performance.now();
+  let lastTickIdx = pointerIndex(names.length);
+
+  function frame(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3); // cubic ease-out
+    wheelAngle = current + total * eased;
+    drawWheel();
+    const idx = pointerIndex(names.length);
+    if (idx !== lastTickIdx) {
+      lastTickIdx = idx;
+      audio.tick();
+    }
+    if (t < 1) {
+      scheduleFrame(frame);
+    } else {
+      spinning = false;
+      finishPick(winner);
+    }
+  }
+  scheduleFrame(frame);
+}
+
+/* requestAnimationFrame pauses in hidden tabs, which would leave a spin
+   stuck mid-flight if the window loses visibility. The animation is
+   wall-clock-driven, so a coarse setTimeout keeps it resolving until the
+   tab is visible again. */
+function scheduleFrame(fn) {
+  if (document.visibilityState === "visible") requestAnimationFrame(fn);
+  else setTimeout(() => fn(performance.now()), 250);
+}
+
+function settleWheelOn(winnerIdx, count) {
+  const seg = (Math.PI * 2) / count;
+  wheelAngle = -Math.PI / 2 - (winnerIdx * seg + seg / 2);
+}
+
+/* ============================== Pick flow ============================== */
+
+let currentWinner = null;
+
+function finishPick(winner) {
+  currentWinner = winner;
+  state.history.push({ name: winner.name, class: state.classLabel, ts: Date.now() });
+  if (state.history.length > HISTORY_CAP) state.history.splice(0, state.history.length - HISTORY_CAP);
+  saveLocal();
+  audio.chime();
+  winnerName.textContent = winner.name;
+  modalBackdrop.hidden = false;
+  removeBtn.focus();
+  if (!reducedMotion) confetti.burst();
+  renderHistory();
+}
+
+function closeModal(remove) {
+  if (currentWinner && remove) {
+    currentWinner.removed = true;
+    saveLocal();
+  }
+  currentWinner = null;
+  modalBackdrop.hidden = true;
+  confetti.stop();
+  renderAll();
+  spinBtn.focus();
+}
+
+/* ============================== Audio ============================== */
+
+/* All sounds are synthesized — no audio files, nothing to load. */
+const audio = (() => {
+  let ctx = null;
+  function prime() {
+    if (!ctx) {
+      try { ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch (_) { ctx = null; }
+    }
+    if (ctx && ctx.state === "suspended") ctx.resume();
+  }
+  function blip(freq, dur, type, gainPeak, when) {
+    if (!ctx || state.muted) return;
+    const t0 = ctx.currentTime + (when || 0);
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gainPeak, t0 + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  }
+  return {
+    prime,
+    tick() { blip(2200, 0.03, "square", 0.06, 0); },
+    chime() {
+      prime();
+      blip(660, 0.25, "sine", 0.22, 0);
+      blip(880, 0.4, "sine", 0.22, 0.12);
+    },
+  };
+})();
+
+/* ============================== Confetti ============================== */
+
+const confetti = (() => {
+  const canvas = document.getElementById("confetti");
+  const cx = canvas.getContext("2d");
+  let parts = [];
+  let raf = 0;
+  function burst() {
+    const w = canvas.width = canvas.offsetWidth;
+    const h = canvas.height = canvas.offsetHeight;
+    parts = Array.from({ length: 130 }, () => ({
+      x: w / 2 + (Math.random() - 0.5) * w * 0.3,
+      y: h * 0.35,
+      vx: (Math.random() - 0.5) * 9,
+      vy: -Math.random() * 8 - 3,
+      rot: Math.random() * Math.PI,
+      vr: (Math.random() - 0.5) * 0.3,
+      size: 5 + Math.random() * 6,
+      hue: Math.random() * 360,
+      life: 1,
+    }));
+    cancelAnimationFrame(raf);
+    const t0 = performance.now();
+    (function frame(now) {
+      const dt = Math.min(32, now - t0) / 16;
+      cx.clearRect(0, 0, w, h);
+      for (const p of parts) {
+        p.vy += 0.25;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.vr;
+        p.life -= 0.006;
+        if (p.life <= 0) continue;
+        cx.save();
+        cx.translate(p.x, p.y);
+        cx.rotate(p.rot);
+        cx.globalAlpha = Math.max(0, p.life);
+        cx.fillStyle = `hsl(${p.hue} 80% 60%)`;
+        cx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        cx.restore();
+      }
+      if (parts.some((p) => p.life > 0 && p.y < h + 20)) raf = requestAnimationFrame(frame);
+      else cx.clearRect(0, 0, w, h);
+    })(t0);
+  }
+  function stop() {
+    cancelAnimationFrame(raf);
+    cx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  return { burst, stop };
+})();
+
+/* ============================== History ============================== */
+
+function exportJson() {
+  download("history.json", JSON.stringify({ app: "namewheel", v: 1, history: state.history }, null, 2), "application/json");
+}
+
+function exportCsv() {
+  const esc = (s) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+  const rows = ["Name,Class,When"];
+  for (const h of state.history) {
+    rows.push([esc(h.name), esc(h.class || ""), new Date(h.ts).toLocaleString()].join(","));
+  }
+  download("history.csv", "﻿" + rows.join("\r\n"), "text/csv");
+}
+
+function importHistoryFile(file) {
+  file.text().then((text) => {
+    let data;
+    try { data = JSON.parse(text); } catch (_) { toast("That file isn't valid JSON."); return; }
+    const incoming = Array.isArray(data.history) ? data.history : Array.isArray(data) ? data : null;
+    if (!incoming) { toast("No history found in that file."); return; }
+    const have = new Set(state.history.map((h) => h.ts + "|" + h.name));
+    let added = 0;
+    for (const h of incoming) {
+      if (!h || typeof h.name !== "string" || typeof h.ts !== "number") continue;
+      const key = h.ts + "|" + h.name;
+      if (have.has(key)) continue;
+      have.add(key);
+      state.history.push({ name: h.name, class: typeof h.class === "string" ? h.class : "", ts: h.ts });
+      added++;
+    }
+    state.history.sort((a, b) => a.ts - b.ts);
+    if (state.history.length > HISTORY_CAP) state.history.splice(0, state.history.length - HISTORY_CAP);
+    saveLocal();
+    renderHistory();
+    toast(added ? `Imported ${added} picks.` : "Nothing new to import.");
+  });
+}
+
+function download(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/* ============================== Rendering ============================== */
+
+const app = document.getElementById("app");
+const nameList = document.getElementById("nameList");
+const classLabelEl = document.getElementById("classLabel");
+const countLabel = document.getElementById("countLabel");
+const emptyNote = document.getElementById("emptyNote");
+const spinBtn = document.getElementById("spinBtn");
+const modalBackdrop = document.getElementById("modalBackdrop");
+const winnerName = document.getElementById("winnerName");
+const removeBtn = document.getElementById("removeBtn");
+const keepBtn = document.getElementById("keepBtn");
+const drawer = document.getElementById("drawer");
+const equityList = document.getElementById("equityList");
+const equityScope = document.getElementById("equityScope");
+const logList = document.getElementById("logList");
+const toastEl = document.getElementById("toast");
+
+function renderAll() {
+  classLabelEl.textContent = state.classLabel || "No class loaded";
+  const el = eligible().length;
+  countLabel.textContent = state.roster.length
+    ? `${el} on wheel · ${state.roster.length} in class`
+    : "";
+  emptyNote.hidden = state.roster.length > 0;
+  spinBtn.disabled = el === 0 || spinning;
+  document.getElementById("autoRemove").checked = state.autoRemove;
+  renderNames();
+  renderHistory();
+  drawWheel();
+}
+
+function renderNames() {
+  nameList.textContent = "";
+  state.roster.forEach((r, i) => {
+    const row = document.createElement("div");
+    row.className = "name-row" + (r.removed ? " removed" : "") + (r.absent ? " absent" : "");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = !r.absent;
+    cb.title = r.absent ? "Marked absent — click to include" : "Present — click to mark absent";
+    cb.addEventListener("change", () => {
+      r.absent = !cb.checked;
+      saveLocal();
+      renderAll();
+    });
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    nm.textContent = r.name;
+    row.append(cb, nm);
+    if (r.removed) {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "picked";
+      row.append(tag);
+    } else if (r.absent) {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "absent";
+      row.append(tag);
+    }
+    nameList.append(row);
+  });
+}
+
+function renderHistory() {
+  const scope = state.classLabel || "";
+  equityScope.textContent = scope || "all classes";
+  const inScope = scope ? state.history.filter((h) => h.class === scope) : state.history;
+
+  const counts = new Map();
+  for (const h of inScope) counts.set(h.name, (counts.get(h.name) || 0) + 1);
+  // Roster members with zero picks matter for equity — show them at the top? No:
+  // sort ascending by count so the least-picked students lead the list.
+  const rosterNames = state.roster.map((r) => r.name);
+  for (const n of rosterNames) if (!counts.has(n)) counts.set(n, 0);
+  const rows = [...counts.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]));
+
+  equityList.textContent = "";
+  for (const [name, count] of rows) {
+    const div = document.createElement("div");
+    div.className = "equity-row";
+    div.innerHTML = `<span class="n"></span><span class="c"></span>`;
+    div.querySelector(".n").textContent = name;
+    div.querySelector(".c").textContent = count === 1 ? "1 pick" : `${count} picks`;
+    equityList.append(div);
+  }
+
+  logList.textContent = "";
+  for (const h of [...inScope].reverse().slice(0, 60)) {
+    const div = document.createElement("div");
+    div.className = "log-row";
+    div.innerHTML = `<span class="n"></span><span class="t"></span>`;
+    div.querySelector(".n").textContent = h.name;
+    div.querySelector(".t").textContent = new Date(h.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    logList.append(div);
+  }
+}
+
+let toastTimer = 0;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
+}
+
+/* ============================== Events ============================== */
+
+document.getElementById("loadBtn").addEventListener("click", () => rosterInput.click());
+const rosterInput = document.getElementById("rosterInput");
+rosterInput.addEventListener("change", () => {
+  if (rosterInput.files[0]) loadRosterFile(rosterInput.files[0]);
+  rosterInput.value = "";
+});
+
+document.getElementById("newClassBtn").addEventListener("click", () => {
+  if (state.roster.length && !confirm("Clear the current roster? (History is kept.)")) return;
+  state.classLabel = "";
+  state.roster = [];
+  saveLocal();
+  renderAll();
+});
+
+document.getElementById("shuffleBtn").addEventListener("click", shuffleRoster);
+document.getElementById("resetBtn").addEventListener("click", () => {
+  state.roster.forEach((r) => { r.removed = false; });
+  saveLocal();
+  renderAll();
+  toast("All names back on the wheel.");
+});
+document.getElementById("autoRemove").addEventListener("change", (e) => {
+  state.autoRemove = e.target.checked;
+  saveLocal();
+});
+
+spinBtn.addEventListener("click", spin);
+removeBtn.addEventListener("click", () => closeModal(true));
+keepBtn.addEventListener("click", () => closeModal(false));
+
+const sideToggle = document.getElementById("sideToggle");
+const narrow = matchMedia("(max-width: 720px)");
+sideToggle.addEventListener("click", () => {
+  if (narrow.matches) {
+    // Narrow window: the panel is an overlay, toggled open.
+    const open = app.classList.toggle("side-open");
+    sideToggle.setAttribute("aria-pressed", String(open));
+  } else {
+    const collapsed = app.classList.toggle("side-collapsed");
+    sideToggle.setAttribute("aria-pressed", String(collapsed));
+  }
+  // Canvas box changes size — redraw after the grid transition settles.
+  setTimeout(drawWheel, 260);
+});
+narrow.addEventListener("change", () => {
+  app.classList.remove("side-open");
+  sideToggle.setAttribute("aria-pressed", "false");
+  setTimeout(drawWheel, 260);
+});
+
+const muteBtn = document.getElementById("muteBtn");
+muteBtn.addEventListener("click", () => {
+  state.muted = !state.muted;
+  muteBtn.textContent = state.muted ? "🔇" : "🔊";
+  muteBtn.setAttribute("aria-pressed", String(state.muted));
+  saveLocal();
+});
+
+const historyBtn = document.getElementById("historyBtn");
+historyBtn.addEventListener("click", () => {
+  const open = drawer.classList.toggle("open");
+  historyBtn.setAttribute("aria-pressed", String(open));
+});
+document.getElementById("drawerClose").addEventListener("click", () => {
+  drawer.classList.remove("open");
+  historyBtn.setAttribute("aria-pressed", "false");
+});
+
+const fsBtn = document.getElementById("fsBtn");
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => toast("Fullscreen was blocked."));
+}
+fsBtn.addEventListener("click", toggleFullscreen);
+document.addEventListener("fullscreenchange", () => {
+  fsBtn.setAttribute("aria-pressed", String(!!document.fullscreenElement));
+});
+
+document.getElementById("exportJson").addEventListener("click", exportJson);
+document.getElementById("exportCsv").addEventListener("click", exportCsv);
+const historyInput = document.getElementById("historyInput");
+document.getElementById("importBtn").addEventListener("click", () => historyInput.click());
+historyInput.addEventListener("change", () => {
+  if (historyInput.files[0]) importHistoryFile(historyInput.files[0]);
+  historyInput.value = "";
+});
+document.getElementById("clearHistory").addEventListener("click", () => {
+  if (!confirm("Delete all pick history? Export first if you want to keep it.")) return;
+  state.history = [];
+  saveLocal();
+  renderHistory();
+});
+
+/* Drag-drop: .txt → roster, .json → history import. */
+let dragDepth = 0;
+document.addEventListener("dragenter", (e) => {
+  e.preventDefault();
+  dragDepth++;
+  document.body.classList.add("dragging");
+});
+document.addEventListener("dragleave", () => {
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) document.body.classList.remove("dragging");
+});
+document.addEventListener("dragover", (e) => e.preventDefault());
+document.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dragDepth = 0;
+  document.body.classList.remove("dragging");
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  if (/\.json$/i.test(file.name)) importHistoryFile(file);
+  else loadRosterFile(file);
+});
+
+/* Keyboard: Space = spin, Enter = highlighted modal choice, Esc = keep, F = fullscreen. */
+document.addEventListener("keydown", (e) => {
+  const inModal = !modalBackdrop.hidden;
+  if (e.key === " " && !inModal && document.activeElement.tagName !== "INPUT") {
+    e.preventDefault();
+    spin();
+  } else if (inModal && e.key === "Enter") {
+    e.preventDefault();
+    closeModal(state.autoRemove);
+  } else if (inModal && e.key === "Escape") {
+    closeModal(false);
+  } else if (!inModal && (e.key === "f" || e.key === "F") && document.activeElement.tagName !== "INPUT") {
+    toggleFullscreen();
+  }
+});
+
+new ResizeObserver(() => drawWheel()).observe(wheelCanvas);
+
+/* Modal primary button reflects the auto-remove setting. */
+const autoRemoveBox = document.getElementById("autoRemove");
+function syncModalPrimary() {
+  removeBtn.classList.toggle("primary", state.autoRemove);
+  keepBtn.classList.toggle("primary", !state.autoRemove);
+}
+autoRemoveBox.addEventListener("change", syncModalPrimary);
+
+/* ============================== Boot ============================== */
+
+loadLocal();
+muteBtn.textContent = state.muted ? "🔇" : "🔊";
+muteBtn.setAttribute("aria-pressed", String(state.muted));
+syncModalPrimary();
+renderAll();
+</script>
+</body>
+</html>
