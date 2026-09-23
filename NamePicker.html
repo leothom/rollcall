@@ -30,6 +30,8 @@
     --wheel-hub: #ffffff;
     --wheel-hub-ring: #d8d2c8;
     --wheel-stroke: rgba(255, 255, 255, 0.85);
+    --pressed-bg: #1c1917;
+    --pressed-ink: #f6f4ef;
   }
   :root[data-theme="dark"] {
     --bg: #191715;
@@ -46,6 +48,9 @@
     --wheel-hub: #2e2a26;
     --wheel-hub-ring: #4a443d;
     --wheel-stroke: rgba(25, 23, 21, 0.75);
+    /* Pressed chips stay dark so active states don't glow in dark mode. */
+    --pressed-bg: #46403a;
+    --pressed-ink: #ece7df;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -116,7 +121,7 @@
     line-height: 1;
   }
   .iconbtn:hover { border-color: var(--muted); }
-  .iconbtn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .iconbtn[aria-pressed="true"] { background: var(--pressed-bg); color: var(--pressed-ink); border-color: var(--pressed-bg); }
 
   /* ---------- Data-file banner ---------- */
   .banner {
@@ -304,8 +309,22 @@
     width: 100%;
     height: 100%;
   }
+  .timer-row { display: flex; align-items: center; gap: clamp(16px, 4vw, 40px); }
+  .timer-adj {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+  }
+  .timer-adj:hover { border-color: var(--muted); }
   #timerDisplay {
-    font-size: clamp(80px, 24vw, 260px);
+    font-size: clamp(80px, 20vw, 230px);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     line-height: 1;
@@ -511,6 +530,7 @@
     <span class="spacer"></span>
     <button class="iconbtn" id="langBtn" title="切换到中文">中</button>
     <button class="iconbtn" id="themeBtn" aria-pressed="false" title="Dark mode">🌙</button>
+    <button class="iconbtn" id="wheelViewBtn" aria-pressed="true" title="Name wheel">🎡</button>
     <button class="iconbtn" id="timerViewBtn" aria-pressed="false" title="Classroom timer">⏱</button>
     <button class="iconbtn" id="helpBtn" title="Help">?</button>
     <button class="iconbtn" id="muteBtn" aria-pressed="false" title="Mute sounds">🔊</button>
@@ -527,7 +547,11 @@
 
   <main class="main">
     <div class="timer-view" id="timerView" hidden>
-      <div id="timerDisplay">05:00</div>
+      <div class="timer-row">
+        <button class="timer-adj" id="timerMinus" title="Subtract a minute">−</button>
+        <div id="timerDisplay">05:00</div>
+        <button class="timer-adj" id="timerPlus" title="Add a minute">+</button>
+      </div>
       <div class="timer-presets">
         <button class="btn" data-min="1">1:00</button>
         <button class="btn" data-min="3">3:00</button>
@@ -711,7 +735,10 @@ const I18N = {
     langTitle: "切换到中文",
     themeTitleDark: "Dark mode",
     themeTitleLight: "Light mode",
+    wheelViewTitle: "Name wheel",
     timerViewTitle: "Classroom timer",
+    timerMinusTitle: "Subtract a minute",
+    timerPlusTitle: "Add a minute",
     helpTitle: "Help",
     muteTitle: "Mute sounds",
     historyTitle: "Pick history and equity",
@@ -804,7 +831,10 @@ const I18N = {
     langTitle: "Switch to English",
     themeTitleDark: "深色模式",
     themeTitleLight: "浅色模式",
+    wheelViewTitle: "点名转盘",
     timerViewTitle: "课堂计时器",
+    timerMinusTitle: "减一分钟",
+    timerPlusTitle: "加一分钟",
     helpTitle: "帮助",
     muteTitle: "静音",
     historyTitle: "抽取历史与均衡",
@@ -1653,7 +1683,10 @@ function applyI18n() {
   langBtn.textContent = state.lang === "zh" ? "EN" : "中";
   langBtn.title = t("langTitle");
   themeBtn.title = state.theme === "dark" ? t("themeTitleLight") : t("themeTitleDark");
+  wheelViewBtn.title = t("wheelViewTitle");
   timerViewBtn.title = t("timerViewTitle");
+  document.getElementById("timerMinus").title = t("timerMinusTitle");
+  document.getElementById("timerPlus").title = t("timerPlusTitle");
   document.getElementById("helpBtn").title = t("helpTitle");
   muteBtn.title = t("muteTitle");
   historyBtn.title = t("historyTitle");
@@ -1959,21 +1992,35 @@ timerCustom.addEventListener("change", () => {
   if (ms > 0) timerSet(ms);
 });
 
+/* ± a whole minute, running or not. Floor at 1:00; − below that is a no-op. */
+function timerAdjust(delta) {
+  const cur = timer.running ? Math.max(0, timer.endTime - Date.now()) : timer.remaining;
+  if (delta < 0 && cur <= 60 * 1000) return;
+  const next = Math.max(60 * 1000, cur + delta);
+  timer.duration = next;
+  if (timer.running) timer.endTime = Date.now() + next;
+  else timer.remaining = next;
+  timerView.classList.remove("flash");
+  timerRender();
+}
+document.getElementById("timerMinus").addEventListener("click", () => timerAdjust(-60 * 1000));
+document.getElementById("timerPlus").addEventListener("click", () => timerAdjust(60 * 1000));
+
 /* ---------- Wheel <-> timer view switch ---------- */
 
 let timerMode = false;
+const wheelViewBtn = document.getElementById("wheelViewBtn");
 function applyView() {
   timerView.hidden = !timerMode;
   document.querySelector(".wheel-wrap").hidden = timerMode;
   spinBtn.hidden = timerMode;
+  wheelViewBtn.setAttribute("aria-pressed", String(!timerMode));
   timerViewBtn.setAttribute("aria-pressed", String(timerMode));
   if (!timerMode) drawWheel();
   else timerRender();
 }
-timerViewBtn.addEventListener("click", () => {
-  timerMode = !timerMode;
-  applyView();
-});
+wheelViewBtn.addEventListener("click", () => { timerMode = false; applyView(); });
+timerViewBtn.addEventListener("click", () => { timerMode = true; applyView(); });
 
 /* ---------- Help ---------- */
 
