@@ -25,6 +25,27 @@
     --danger: #b3362b;
     --shadow: 0 10px 30px rgba(28, 25, 23, 0.12);
     --radius: 14px;
+    /* Canvas reads these at draw time so the wheel follows the theme. */
+    --wheel-label: #231f1c;
+    --wheel-hub: #ffffff;
+    --wheel-hub-ring: #d8d2c8;
+    --wheel-stroke: rgba(255, 255, 255, 0.85);
+  }
+  :root[data-theme="dark"] {
+    --bg: #191715;
+    --surface: #221f1c;
+    --ink: #ece7df;
+    --muted: #9d968c;
+    --border: #3a352f;
+    --primary: #c96a3f;
+    --primary-ink: #ffffff;
+    --accent: #4d9b77;
+    --danger: #d05548;
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    --wheel-label: #1d1a17;
+    --wheel-hub: #2e2a26;
+    --wheel-hub-ring: #4a443d;
+    --wheel-stroke: rgba(25, 23, 21, 0.75);
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -50,8 +71,8 @@
   .app {
     display: grid;
     grid-template-columns: 300px 1fr;
-    grid-template-rows: auto 1fr;
-    grid-template-areas: "side top" "side main";
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas: "side top" "side banner" "side main";
     height: 100%;
     transition: grid-template-columns 0.25s ease;
   }
@@ -97,6 +118,21 @@
   .iconbtn:hover { border-color: var(--muted); }
   .iconbtn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
+  /* ---------- Data-file banner ---------- */
+  .banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 9px 18px;
+    font-size: 13px;
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+    border-bottom: 1px solid var(--border);
+    grid-area: banner;
+  }
+  .banner .btn { padding: 5px 11px; font-size: 12.5px; }
+  .banner .dismiss { margin-left: auto; color: var(--muted); font-size: 15px; padding: 2px 6px; }
+
   /* ---------- Sidebar ---------- */
   .side {
     grid-area: side;
@@ -134,6 +170,32 @@
     font-size: 12px;
     color: var(--muted);
   }
+  .classes {
+    max-height: 32vh;
+    overflow-y: auto;
+    padding: 2px 8px 8px;
+  }
+  .class-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    text-align: left;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 13.5px;
+  }
+  .class-row:hover { background: var(--bg); }
+  .class-row.active { background: var(--primary); color: var(--primary-ink); }
+  .class-row .cl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .class-row .del {
+    color: inherit;
+    opacity: 0.55;
+    font-size: 13px;
+    padding: 2px 5px;
+    border-radius: 6px;
+  }
+  .class-row .del:hover { opacity: 1; background: rgba(0, 0, 0, 0.15); }
   .names {
     flex: 1;
     overflow-y: auto;
@@ -231,6 +293,64 @@
   }
   #spinBtn:hover:not(:disabled) { filter: brightness(1.07); }
   #spinBtn:disabled { opacity: 0.45; cursor: default; }
+
+  /* ---------- Timer screen ---------- */
+  .timer-view {
+    grid-row: 1 / -1;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 26px;
+    width: 100%;
+    height: 100%;
+  }
+  #timerDisplay {
+    font-size: clamp(80px, 24vw, 260px);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    letter-spacing: 0.02em;
+  }
+  .timer-view.flash #timerDisplay { animation: timerflash 0.8s step-end infinite; }
+  @keyframes timerflash { 50% { color: var(--danger); } }
+  .timer-presets { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .timer-presets .btn { font-size: 16px; padding: 10px 18px; }
+  .timer-presets input {
+    width: 92px;
+    font: inherit;
+    font-size: 16px;
+    text-align: center;
+    padding: 9px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .timer-actions { display: flex; gap: 12px; }
+  .timer-actions .btn { font-size: 19px; padding: 12px 34px; border-radius: 999px; }
+
+  /* ---------- Help modal ---------- */
+  .modal.help-modal {
+    text-align: left;
+    max-width: min(92vw, 560px);
+    max-height: 84vh;
+    overflow-y: auto;
+    padding: 28px 34px;
+  }
+  .help-modal h2 { margin: 0 0 4px; font-size: 19px; }
+  .help-modal h3 { margin: 18px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .help-modal p, .help-modal li { font-size: 14px; line-height: 1.55; margin: 6px 0; }
+  .help-modal ul { margin: 4px 0; padding-left: 20px; }
+  .help-modal kbd {
+    font: inherit;
+    font-size: 12.5px;
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    background: var(--bg);
+  }
+  .help-modal .close-row { display: flex; justify-content: flex-end; margin-top: 16px; }
 
   /* ---------- Winner modal ---------- */
   .modal-backdrop {
@@ -372,14 +492,15 @@
     </header>
     <div class="load">
       <button class="btn primary" id="loadBtn">Load roster…</button>
-      <button class="btn" id="newClassBtn" title="Clear the current roster">New class</button>
     </div>
     <p class="hint" id="hintText">Or drag a <strong>.txt</strong> or <strong>.xlsx</strong> file anywhere onto this window.</p>
+    <div class="classes" id="classList" aria-label="Classes"></div>
     <div class="names" id="nameList" aria-label="Roster" data-empty="No roster loaded yet."></div>
     <footer>
       <button class="btn" id="shuffleBtn">Shuffle</button>
       <button class="btn" id="resetBtn" title="Put removed names back on the wheel">Reset round</button>
       <label class="opt"><input type="checkbox" id="autoRemove" checked> Remove picked names</label>
+      <label class="opt"><input type="checkbox" id="weighted"> Favor least-picked</label>
     </footer>
   </aside>
 
@@ -389,12 +510,36 @@
     <span class="count" id="countLabel"></span>
     <span class="spacer"></span>
     <button class="iconbtn" id="langBtn" title="切换到中文">中</button>
+    <button class="iconbtn" id="themeBtn" aria-pressed="false" title="Dark mode">🌙</button>
+    <button class="iconbtn" id="timerViewBtn" aria-pressed="false" title="Classroom timer">⏱</button>
+    <button class="iconbtn" id="helpBtn" title="Help">?</button>
     <button class="iconbtn" id="muteBtn" aria-pressed="false" title="Mute sounds">🔊</button>
     <button class="iconbtn" id="historyBtn" aria-pressed="false" title="Pick history and equity">📋</button>
     <button class="iconbtn" id="fsBtn" aria-pressed="false" title="Fullscreen (F)">⛶</button>
   </div>
 
+  <div class="banner" id="dataBanner" hidden>
+    <span id="bannerText"></span>
+    <button class="btn primary" id="openDataBtn"></button>
+    <button class="btn" id="createDataBtn"></button>
+    <button class="dismiss" id="bannerDismiss" title="Dismiss">✕</button>
+  </div>
+
   <main class="main">
+    <div class="timer-view" id="timerView" hidden>
+      <div id="timerDisplay">05:00</div>
+      <div class="timer-presets">
+        <button class="btn" data-min="1">1:00</button>
+        <button class="btn" data-min="3">3:00</button>
+        <button class="btn" data-min="5">5:00</button>
+        <button class="btn" data-min="10">10:00</button>
+        <input id="timerCustom" placeholder="mm:ss" inputmode="numeric" aria-label="Custom time">
+      </div>
+      <div class="timer-actions">
+        <button class="btn primary" id="timerStartBtn">Start</button>
+        <button class="btn" id="timerResetBtn">Reset</button>
+      </div>
+    </div>
     <div class="wheel-wrap">
       <canvas id="wheel"></canvas>
       <div class="pointer" aria-hidden="true"></div>
@@ -436,6 +581,13 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="helpBackdrop" hidden>
+  <div class="modal help-modal" role="dialog" aria-modal="true" id="helpContentWrap">
+    <div id="helpContent"></div>
+    <div class="close-row"><button class="btn primary" id="helpClose">OK</button></div>
+  </div>
+</div>
+
 <div class="drop-overlay">Drop roster (.txt) or history (.json)</div>
 <div class="toast" id="toast"></div>
 <input type="file" id="rosterInput" accept=".txt,.xlsx,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
@@ -446,17 +598,93 @@
 
 /* ============================== State ============================== */
 
-const STORAGE_KEY = "namewheel.v1";
+const STORAGE_KEY = "namewheel.v2";
+const STORAGE_KEY_V1 = "namewheel.v1";
 const HISTORY_CAP = 5000;
+const CLASS_CAP = 30;
 
+/* v2 state. Classroom machines are communal and may be wiped, so the real
+   home of this data is namewheel-data.json on the teacher's USB (live-synced
+   via the File System Access API, or saved/imported manually). localStorage
+   is only a same-session convenience. */
 const state = {
-  classLabel: "",
-  roster: [],            // { name, absent, removed }
-  history: [],           // { name, class, ts }  (ts = epoch ms)
+  classes: [],           // { id, label, roster: [{ name, absent, removed }] }
+  activeClassId: null,
+  history: [],           // { name, class, ts }  (class = label, ts = epoch ms)
   autoRemove: true,
   muted: false,
-  lang: "en",              // UI language: "en" | "zh" (roster names are never translated)
+  weighted: false,       // favor least-picked (off by default; odds shown honestly)
+  lang: "en",            // UI language: "en" | "zh" (roster names are never translated)
+  theme: "light",        // "light" | "dark"
 };
+
+function activeClass() {
+  return state.classes.find((c) => c.id === state.activeClassId) || null;
+}
+function currentRoster() {
+  const c = activeClass();
+  return c ? c.roster : [];
+}
+function currentLabel() {
+  const c = activeClass();
+  return c ? c.label : "";
+}
+function newClassId() {
+  return "c" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+}
+
+function serialize() {
+  return {
+    app: "namewheel",
+    v: 2,
+    settings: {
+      lang: state.lang,
+      theme: state.theme,
+      autoRemove: state.autoRemove,
+      muted: state.muted,
+      weighted: state.weighted,
+    },
+    classes: state.classes,
+    activeClassId: state.activeClassId,
+    history: state.history,
+  };
+}
+
+function sanitizeRoster(roster) {
+  return (Array.isArray(roster) ? roster : [])
+    .filter((r) => r && typeof r.name === "string")
+    .map((r) => ({ name: r.name, absent: !!r.absent, removed: !!r.removed }));
+}
+
+function sanitizeHistory(history) {
+  return (Array.isArray(history) ? history : [])
+    .filter((h) => h && typeof h.name === "string" && typeof h.ts === "number")
+    .map((h) => ({ name: h.name, class: typeof h.class === "string" ? h.class : "", ts: h.ts }));
+}
+
+/* Accepts a v2 data object; returns false if the shape is wrong. */
+function deserialize(data) {
+  if (!data || data.app !== "namewheel" || data.v !== 2 || !Array.isArray(data.classes)) return false;
+  state.classes = data.classes
+    .filter((c) => c && typeof c.label === "string")
+    .slice(0, CLASS_CAP)
+    .map((c) => ({
+      id: typeof c.id === "string" ? c.id : newClassId(),
+      label: c.label,
+      roster: sanitizeRoster(c.roster),
+    }));
+  state.activeClassId = state.classes.some((c) => c.id === data.activeClassId)
+    ? data.activeClassId
+    : (state.classes[0] ? state.classes[0].id : null);
+  state.history = sanitizeHistory(data.history);
+  const s = data.settings || {};
+  state.lang = s.lang === "zh" ? "zh" : "en";
+  state.theme = s.theme === "dark" ? "dark" : "light";
+  state.autoRemove = s.autoRemove !== false;
+  state.muted = !!s.muted;
+  state.weighted = !!s.weighted;
+  return true;
+}
 
 /* ============================== i18n ============================== */
 
@@ -466,19 +694,25 @@ const I18N = {
   en: {
     appTitle: "Name Wheel",
     loadRoster: "Load roster…",
-    newClass: "New class",
-    newClassTitle: "Clear the current roster",
     hint: 'Or drag a <strong>.txt</strong> or <strong>.xlsx</strong> file anywhere onto this window.',
+    classesAria: "Classes",
+    deleteClassTitle: "Remove this class",
+    confirmDeleteClass: 'Remove "{label}" from the list? (Its pick history is kept.)',
     rosterAria: "Roster",
     noRosterYet: "No roster loaded yet.",
     shuffle: "Shuffle",
     resetRound: "Reset round",
     resetRoundTitle: "Put removed names back on the wheel",
     autoRemoveLabel: "Remove picked names",
+    weightedLabel: "Favor least-picked",
     sideToggleTitle: "Hide roster panel (good for the projector)",
     noClass: "No class loaded",
     countLabel: "{n} on wheel · {total} in class",
     langTitle: "切换到中文",
+    themeTitleDark: "Dark mode",
+    themeTitleLight: "Light mode",
+    timerViewTitle: "Classroom timer",
+    helpTitle: "Help",
     muteTitle: "Mute sounds",
     historyTitle: "Pick history and equity",
     fsTitle: "Fullscreen (F)",
@@ -490,12 +724,12 @@ const I18N = {
     keyhint: "Enter = highlighted choice  ·  Esc = keep",
     historyHeading: "History & equity",
     closeTitle: "Close",
-    exportJson: "Export JSON",
-    exportJsonTitle: "Save full history as a JSON file (keep it on the USB)",
+    exportJson: "Save data file",
+    exportJsonTitle: "Download everything (classes, history, settings) as namewheel-data.json — keep it on the USB",
     exportCsv: "Export CSV",
     exportCsvTitle: "Save history as a spreadsheet-friendly CSV",
     importBtn: "Import…",
-    importTitle: "Merge a previously exported history.json",
+    importTitle: "Load a namewheel-data.json (or an old history.json)",
     clearBtn: "Clear",
     picksPerStudent: "Picks per student — ",
     allClasses: "all classes",
@@ -506,7 +740,14 @@ const I18N = {
     tagAbsent: "absent",
     cbAbsentTitle: "Marked absent — click to include",
     cbPresentTitle: "Present — click to mark absent",
-    dropText: "Drop roster (.txt / .xlsx) or history (.json)",
+    dropText: "Drop roster (.txt / .xlsx) or data file (.json)",
+    bannerText: "Working from a USB? Open your data file so nothing is lost when this computer is wiped.",
+    bannerTextManual: "This browser can't sync to a file directly — use Save data file / Import in the 📋 panel to keep everything on your USB.",
+    openData: "Open data file…",
+    createData: "Create data file…",
+    timerStart: "Start",
+    timerPause: "Pause",
+    timerReset: "Reset",
     toastLoaded: "Loaded {n} names — {label}",
     toastNoNames: "No names found in that file.",
     toastXlsxFail: "Couldn't read that spreadsheet — is it a SchoolPal roster export?",
@@ -516,25 +757,55 @@ const I18N = {
     toastNoHistory: "No history found in that file.",
     toastAllBack: "All names back on the wheel.",
     toastFsBlocked: "Fullscreen was blocked.",
-    confirmClearRoster: "Clear the current roster? (History is kept.)",
-    confirmClearHistory: "Delete all pick history? Export first if you want to keep it.",
+    toastFileOpened: "Data file opened — changes now save to it automatically.",
+    toastFileCreated: "Data file created — changes now save to it automatically.",
+    toastFileWriteFail: "Couldn't save to the data file — is the USB still plugged in? Will keep retrying.",
+    toastFileSynced: "Data file is saving again.",
+    toastNotDataFile: "That doesn't look like a Name Wheel data file.",
+    toastDataImported: "Data imported — {n} classes.",
+    toastClassCap: "Class list is full ({n}). Remove one first.",
+    confirmClearHistory: "Delete all pick history? Save your data file first if you want to keep it.",
+    helpClose: "OK",
+    helpBody: `
+      <h2>Name Wheel — quick start</h2>
+      <p>Pick students fairly, at random. Everything works offline from one file.</p>
+      <h3>Getting started</h3>
+      <ul>
+        <li><strong>Load roster…</strong> — a .txt file (one name per line) or a SchoolPal 学生名单 .xlsx export. Each file becomes a class in the list; click a class to switch.</li>
+        <li>Uncheck a student to mark them absent today. <strong>SPIN</strong> or <kbd>Space</kbd> picks someone.</li>
+      </ul>
+      <h3>Keeping your data on the USB</h3>
+      <p>Classroom computers may be wiped, so the app saves to a file called <strong>namewheel-data.json</strong> that should live on your USB drive. Open it when the banner asks (once per session) and every change saves automatically. No banner buttons? Use <strong>Save data file</strong> / <strong>Import…</strong> in the 📋 panel instead.</p>
+      <h3>Favor least-picked</h3>
+      <p>Off by default, the wheel is perfectly uniform. Switched on, students who have been picked less often get bigger slices — the slice size always shows the true odds.</p>
+      <h3>Keyboard</h3>
+      <p><kbd>Space</kbd> spin (or start/pause the timer) · <kbd>Enter</kbd> confirm · <kbd>Esc</kbd> keep · <kbd>F</kbd> fullscreen</p>
+      <h3>Privacy</h3>
+      <p>Student names never leave this computer or your USB drive. Nothing is uploaded anywhere — the app has no internet access at all.</p>
+    `,
   },
   zh: {
     appTitle: "点名转盘",
     loadRoster: "加载名单…",
-    newClass: "新班级",
-    newClassTitle: "清除当前名单",
     hint: '也可将 <strong>.txt</strong> 或 <strong>.xlsx</strong> 文件拖到窗口任意位置。',
+    classesAria: "班级列表",
+    deleteClassTitle: "移除该班级",
+    confirmDeleteClass: '把「{label}」从列表中移除？（抽取历史会保留。）',
     rosterAria: "名单",
     noRosterYet: "尚未加载名单。",
     shuffle: "打乱顺序",
     resetRound: "重置本轮",
     resetRoundTitle: "把已移除的名字放回转盘",
     autoRemoveLabel: "移除已抽中的名字",
+    weightedLabel: "优先少抽到的学生",
     sideToggleTitle: "隐藏名单面板（适合投影）",
     noClass: "未加载班级",
     countLabel: "转盘上 {n} 人 · 全班 {total} 人",
     langTitle: "Switch to English",
+    themeTitleDark: "深色模式",
+    themeTitleLight: "浅色模式",
+    timerViewTitle: "课堂计时器",
+    helpTitle: "帮助",
     muteTitle: "静音",
     historyTitle: "抽取历史与均衡",
     fsTitle: "全屏 (F)",
@@ -546,12 +817,12 @@ const I18N = {
     keyhint: "回车 = 高亮选项  ·  Esc = 保留",
     historyHeading: "历史与均衡",
     closeTitle: "关闭",
-    exportJson: "导出 JSON",
-    exportJsonTitle: "把完整历史保存为 JSON 文件（可放在U盘上）",
+    exportJson: "保存数据文件",
+    exportJsonTitle: "把全部数据（班级、历史、设置）下载为 namewheel-data.json — 请放在U盘上",
     exportCsv: "导出 CSV",
     exportCsvTitle: "把历史保存为可用 Excel 打开的 CSV",
     importBtn: "导入…",
-    importTitle: "合并之前导出的 history.json",
+    importTitle: "加载 namewheel-data.json（或旧版 history.json）",
     clearBtn: "清空",
     picksPerStudent: "每位学生被抽次数 — ",
     allClasses: "所有班级",
@@ -562,7 +833,14 @@ const I18N = {
     tagAbsent: "缺席",
     cbAbsentTitle: "已标记缺席 — 点击恢复",
     cbPresentTitle: "在班 — 点击标记缺席",
-    dropText: "拖放名单 (.txt / .xlsx) 或历史 (.json)",
+    dropText: "拖放名单 (.txt / .xlsx) 或数据文件 (.json)",
+    bannerText: "用U盘上课？打开你的数据文件，这台电脑被清空也不会丢数据。",
+    bannerTextManual: "此浏览器不支持直接同步到文件 — 请用 📋 面板中的「保存数据文件 / 导入」把数据保存到U盘。",
+    openData: "打开数据文件…",
+    createData: "新建数据文件…",
+    timerStart: "开始",
+    timerPause: "暂停",
+    timerReset: "重置",
     toastLoaded: "已加载 {n} 个名字 — {label}",
     toastNoNames: "文件中没有找到名字。",
     toastXlsxFail: "无法读取该表格 — 是 SchoolPal 导出的名单吗？",
@@ -572,8 +850,32 @@ const I18N = {
     toastNoHistory: "文件中没有找到历史记录。",
     toastAllBack: "所有名字已回到转盘。",
     toastFsBlocked: "全屏被浏览器阻止。",
-    confirmClearRoster: "清除当前名单？（历史会保留。）",
-    confirmClearHistory: "删除全部抽取历史？如需保留请先导出。",
+    toastFileOpened: "已打开数据文件 — 之后的更改会自动保存到该文件。",
+    toastFileCreated: "已新建数据文件 — 之后的更改会自动保存到该文件。",
+    toastFileWriteFail: "无法保存到数据文件 — U盘还插着吗？会继续重试。",
+    toastFileSynced: "数据文件恢复正常保存。",
+    toastNotDataFile: "这不是点名转盘的数据文件。",
+    toastDataImported: "已导入数据 — 共 {n} 个班级。",
+    toastClassCap: "班级列表已满（{n} 个）。请先移除一个。",
+    confirmClearHistory: "删除全部抽取历史？如需保留请先保存数据文件。",
+    helpClose: "好的",
+    helpBody: `
+      <h2>点名转盘 — 快速上手</h2>
+      <p>公平随机地抽取学生。完全离线，一个文件搞定。</p>
+      <h3>开始使用</h3>
+      <ul>
+        <li><strong>加载名单…</strong> — .txt 文件（每行一个名字）或 SchoolPal 导出的学生名单 .xlsx。每个文件成为列表中的一个班级；点击即可切换。</li>
+        <li>取消勾选可把学生标为今日缺席。<strong>开转</strong> 或按<kbd>空格</kbd>抽人。</li>
+      </ul>
+      <h3>把数据保存在U盘上</h3>
+      <p>教室电脑可能被定期清空，所以应用会把数据保存到一个叫 <strong>namewheel-data.json</strong> 的文件里，请把它放在U盘上。每次打开应用时按横幅提示打开该文件（每次会话一次），之后所有更改自动保存。没有横幅按钮？改用 📋 面板中的<strong>保存数据文件</strong>和<strong>导入…</strong>。</p>
+      <h3>优先少抽到的学生</h3>
+      <p>默认关闭时转盘完全均匀。开启后，被抽次数少的学生占的扇区更大 — 扇区大小始终如实显示真实概率。</p>
+      <h3>键盘</h3>
+      <p><kbd>空格</kbd> 转动转盘（或启停计时器） · <kbd>回车</kbd> 确认 · <kbd>Esc</kbd> 保留 · <kbd>F</kbd> 全屏</p>
+      <h3>隐私</h3>
+      <p>学生姓名不会离开这台电脑和你的U盘。任何数据都不会上传 — 应用完全没有联网功能。</p>
+    `,
   },
 };
 
@@ -592,41 +894,99 @@ function dateLocale() {
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function eligible() {
-  return state.roster.filter((r) => !r.absent && !r.removed);
+  return currentRoster().filter((r) => !r.absent && !r.removed);
 }
 
-/* localStorage is a per-machine convenience only (it can be blocked on
-   file:// or wiped between classrooms) — every read/write is best-effort,
-   and Export/Import JSON is the real cross-computer path. */
-function saveLocal() {
+/* -------- Persistence: data file (USB) > manual export > localStorage -------- */
+
+let dataFileHandle = null;   // FileSystemFileHandle once the teacher opens/creates one
+let writeTimer = 0;
+let writeFailed = false;
+
+const fsApiAvailable = typeof window.showOpenFilePicker === "function"
+  && typeof window.showSaveFilePicker === "function";
+
+/* Called after every state change. localStorage immediately (best-effort,
+   same-session refresh safety), data file debounced. */
+function saveData() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize())); }
+  catch (_) { /* storage unavailable — session-only mode */ }
+  if (dataFileHandle) {
+    clearTimeout(writeTimer);
+    writeTimer = setTimeout(writeDataFile, 500);
+  }
+}
+
+async function writeDataFile() {
+  if (!dataFileHandle) return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      classLabel: state.classLabel,
-      roster: state.roster,
-      history: state.history,
-      autoRemove: state.autoRemove,
-      muted: state.muted,
-      lang: state.lang,
-    }));
-  } catch (_) { /* storage unavailable — session-only mode */ }
+    const w = await dataFileHandle.createWritable();
+    await w.write(JSON.stringify(serialize(), null, 2));
+    await w.close();
+    if (writeFailed) { writeFailed = false; toast(t("toastFileSynced")); }
+  } catch (_) {
+    // Permission lost or USB pulled: warn once, retry on the next change.
+    if (!writeFailed) { writeFailed = true; toast(t("toastFileWriteFail")); }
+  }
 }
 
+async function openDataFile() {
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: "Name Wheel data", accept: { "application/json": [".json"] } }],
+    });
+    const file = await handle.getFile();
+    let data;
+    try { data = JSON.parse(await file.text()); }
+    catch (_) { toast(t("toastBadJson")); return; }
+    if (!deserialize(data)) { toast(t("toastNotDataFile")); return; }
+    dataFileHandle = handle;
+    hideBanner();
+    applyTheme();
+    applyI18n();
+    renderAll();
+    toast(t("toastFileOpened"));
+  } catch (_) { /* picker dismissed */ }
+}
+
+async function createDataFile() {
+  try {
+    dataFileHandle = await window.showSaveFilePicker({
+      suggestedName: "namewheel-data.json",
+      types: [{ description: "Name Wheel data", accept: { "application/json": [".json"] } }],
+    });
+    await writeDataFile();
+    hideBanner();
+    toast(t("toastFileCreated"));
+  } catch (_) { /* picker dismissed */ }
+}
+
+function hideBanner() {
+  document.getElementById("dataBanner").hidden = true;
+}
+
+/* Session boot: v2 localStorage, else migrate v1 (single roster). */
 function loadLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw && deserialize(JSON.parse(raw))) return;
+  } catch (_) { /* fall through */ }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_V1);
     if (!raw) return;
     const s = JSON.parse(raw);
-    state.classLabel = typeof s.classLabel === "string" ? s.classLabel : "";
-    state.roster = Array.isArray(s.roster)
-      ? s.roster.filter((r) => r && typeof r.name === "string")
-          .map((r) => ({ name: r.name, absent: !!r.absent, removed: !!r.removed }))
-      : [];
-    state.history = Array.isArray(s.history)
-      ? s.history.filter((h) => h && typeof h.name === "string" && typeof h.ts === "number")
-      : [];
+    const roster = sanitizeRoster(s.roster);
+    if (roster.length) {
+      const id = newClassId();
+      state.classes = [{ id, label: typeof s.classLabel === "string" && s.classLabel ? s.classLabel : "Class", roster }];
+      state.activeClassId = id;
+    }
+    state.history = sanitizeHistory(s.history);
     state.autoRemove = s.autoRemove !== false;
     state.muted = !!s.muted;
     state.lang = s.lang === "zh" ? "zh" : "en";
+    localStorage.removeItem(STORAGE_KEY_V1);
+    saveData();
   } catch (_) { /* corrupted or blocked — start fresh */ }
 }
 
@@ -651,11 +1011,25 @@ function applyRoster(names, label) {
     toast(t("toastNoNames"));
     return;
   }
-  state.classLabel = label;
-  state.roster = names.map((name) => ({ name, absent: false, removed: false }));
-  saveLocal();
+  const roster = names.map((name) => ({ name, absent: false, removed: false }));
+  // Same label = same class: replace its roster in place (id and history
+  // continuity survive re-imports of an updated SchoolPal export).
+  const existing = state.classes.find((c) => c.label === label);
+  if (existing) {
+    existing.roster = roster;
+    state.activeClassId = existing.id;
+  } else {
+    if (state.classes.length >= CLASS_CAP) {
+      toast(t("toastClassCap", { n: CLASS_CAP }));
+      return;
+    }
+    const id = newClassId();
+    state.classes.push({ id, label, roster });
+    state.activeClassId = id;
+  }
+  saveData();
   renderAll();
-  toast(t("toastLoaded", { n: names.length, label: state.classLabel }));
+  toast(t("toastLoaded", { n: names.length, label }));
 }
 
 function loadRosterFile(file) {
@@ -822,15 +1196,31 @@ async function loadXlsxRoster(file) {
   applyRoster(parseRoster(names.join("\n")), label);
 }
 
+/* First-ever open: a clearly fictional class so the wheel works immediately.
+   It's an ordinary class — teachers delete it from the class list. */
+function loadDemoClass() {
+  const names = [
+    "学生甲 / Ava", "学生乙 / Ben", "学生丙 / Cleo", "学生丁 / Dev",
+    "学生戊 / Ema", "学生己 / Finn", "学生庚 / Gia", "学生辛 / Hugo",
+  ];
+  const id = newClassId();
+  state.classes = [{
+    id,
+    label: "Sample Class 示例班级",
+    roster: names.map((name) => ({ name, absent: false, removed: false })),
+  }];
+  state.activeClassId = id;
+}
+
 function shuffleRoster() {
   // Fisher–Yates over the whole roster; the wheel shows eligible members
   // in roster order, so this visibly reorders segments.
-  const a = state.roster;
+  const a = currentRoster();
   for (let i = a.length - 1; i > 0; i--) {
     const j = randInt(i + 1);
     [a[i], a[j]] = [a[j], a[i]];
   }
-  saveLocal();
+  saveData();
   renderAll();
 }
 
@@ -858,6 +1248,44 @@ function segmentColor(i, n) {
   return `hsl(${hue} 62% ${i % 2 ? 68 : 58}%)`;
 }
 
+/* Equity weighting: 1 / (picks in this class + 1). Uniform when off. */
+function pickWeights(names) {
+  if (!state.weighted) return names.map(() => 1);
+  const counts = new Map();
+  const label = currentLabel();
+  for (const h of state.history) {
+    if (h.class === label) counts.set(h.name, (counts.get(h.name) || 0) + 1);
+  }
+  return names.map((r) => 1 / ((counts.get(r.name) || 0) + 1));
+}
+
+/* Segment arcs in radians. When weighting is on, arc size IS the real
+   probability — the bias is visible on the wheel, never silent. */
+function segmentArcs(names) {
+  const w = pickWeights(names);
+  const total = w.reduce((a, b) => a + b, 0);
+  const arcs = [];
+  let acc = 0;
+  for (let i = 0; i < names.length; i++) {
+    const start = (acc / total) * Math.PI * 2;
+    acc += w[i];
+    arcs.push({ start, end: (acc / total) * Math.PI * 2, weight: w[i] / total });
+  }
+  return arcs;
+}
+
+function weightedRandIndex(arcs) {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  const r = (buf[0] / 0x100000000) * Math.PI * 2;
+  for (let i = 0; i < arcs.length; i++) if (r < arcs[i].end) return i;
+  return arcs.length - 1;
+}
+
+function themeColor(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 function drawWheel() {
   const dpr = window.devicePixelRatio || 1;
   const cssSize = wheelCanvas.clientWidth;
@@ -868,35 +1296,36 @@ function drawWheel() {
   const size = wheelCanvas.width;
   const c = size / 2;
   const radius = c - 6 * dpr;
+  if (radius <= 0) return; // canvas not laid out yet (e.g. hidden or pre-layout draw)
   const names = eligible();
   wctx.clearRect(0, 0, size, size);
   if (names.length === 0) return;
 
-  const seg = (Math.PI * 2) / names.length;
-  // Label size scales down as the class grows; floors at readable-from-rows-back.
-  const fontPx = Math.max(11, Math.min(26, (radius * seg) / 16)) * dpr;
+  const arcs = segmentArcs(names);
 
   wctx.save();
   wctx.translate(c, c);
   wctx.rotate(wheelAngle);
   for (let i = 0; i < names.length; i++) {
-    const a0 = i * seg;
+    const { start, end } = arcs[i];
     wctx.beginPath();
     wctx.moveTo(0, 0);
-    wctx.arc(0, 0, radius, a0, a0 + seg);
+    wctx.arc(0, 0, radius, start, end);
     wctx.closePath();
     wctx.fillStyle = segmentColor(i, names.length);
     wctx.fill();
-    wctx.strokeStyle = "rgba(255,255,255,0.85)";
+    wctx.strokeStyle = themeColor("--wheel-stroke");
     wctx.lineWidth = 1.5 * dpr;
     wctx.stroke();
 
+    // Label size follows this segment's own arc; floors at readable-from-rows-back.
+    const fontPx = Math.max(11, Math.min(26, (radius * (end - start)) / 16)) * dpr;
     wctx.save();
-    wctx.rotate(a0 + seg / 2);
+    wctx.rotate((start + end) / 2);
     wctx.textAlign = "right";
     wctx.textBaseline = "middle";
     wctx.font = `600 ${fontPx}px "Segoe UI", system-ui, sans-serif`;
-    wctx.fillStyle = "#231f1c";
+    wctx.fillStyle = themeColor("--wheel-label");
     const label = fitLabel(names[i].name, radius * 0.62);
     wctx.fillText(label, radius * 0.94, 0);
     wctx.restore();
@@ -904,9 +1333,9 @@ function drawWheel() {
   // Hub.
   wctx.beginPath();
   wctx.arc(0, 0, 26 * dpr, 0, Math.PI * 2);
-  wctx.fillStyle = "#ffffff";
+  wctx.fillStyle = themeColor("--wheel-hub");
   wctx.fill();
-  wctx.strokeStyle = "#d8d2c8";
+  wctx.strokeStyle = themeColor("--wheel-hub-ring");
   wctx.lineWidth = 2 * dpr;
   wctx.stroke();
   wctx.restore();
@@ -919,24 +1348,26 @@ function fitLabel(name, maxWidth) {
   return s + "…";
 }
 
-/* The pointer sits at 12 o'clock = angle -PI/2 in canvas space. A segment i
-   spans [i*seg, (i+1)*seg) before rotation; it sits under the pointer when
-   (-PI/2 - wheelAngle) mod 2PI falls inside it. */
-function pointerIndex(count) {
-  const seg = (Math.PI * 2) / count;
+/* The pointer sits at 12 o'clock = angle -PI/2 in canvas space. A segment
+   sits under the pointer when (-PI/2 - wheelAngle) mod 2PI falls inside its
+   arc. */
+function pointerIndex(arcs) {
   const a = ((-Math.PI / 2 - wheelAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-  return Math.floor(a / seg) % count;
+  for (let i = 0; i < arcs.length; i++) if (a < arcs[i].end) return i;
+  return arcs.length - 1;
 }
 
 function spin() {
   const names = eligible();
   if (spinning || names.length === 0) return;
-  const winnerIdx = randInt(names.length);
+  const arcs = segmentArcs(names);
+  const winnerIdx = state.weighted ? weightedRandIndex(arcs) : randInt(names.length);
   const winner = names[winnerIdx];
+  const arc = arcs[winnerIdx];
 
   if (reducedMotion) {
     // Instant, animation-free pick.
-    settleWheelOn(winnerIdx, names.length);
+    settleWheelOn(arc);
     drawWheel();
     finishPick(winner);
     return;
@@ -946,25 +1377,25 @@ function spin() {
   spinBtn.disabled = true;
   audio.prime();
 
-  const seg = (Math.PI * 2) / names.length;
+  const span = arc.end - arc.start;
   // Land the winner's segment centre under the pointer, with a little jitter
   // so it doesn't always stop dead-centre.
-  const jitter = (Math.random() - 0.5) * seg * 0.7;
-  const targetMod = -Math.PI / 2 - (winnerIdx * seg + seg / 2) - jitter;
+  const jitter = (Math.random() - 0.5) * span * 0.7;
+  const targetMod = -Math.PI / 2 - (arc.start + span / 2) - jitter;
   const current = wheelAngle;
   const turns = 5 + Math.floor(Math.random() * 3);
   const delta = ((targetMod - current) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
   const total = turns * Math.PI * 2 + delta;
   const duration = 3800 + Math.random() * 900;
   const start = performance.now();
-  let lastTickIdx = pointerIndex(names.length);
+  let lastTickIdx = pointerIndex(arcs);
 
   function frame(now) {
     const t = Math.min(1, (now - start) / duration);
     const eased = 1 - Math.pow(1 - t, 3); // cubic ease-out
     wheelAngle = current + total * eased;
     drawWheel();
-    const idx = pointerIndex(names.length);
+    const idx = pointerIndex(arcs);
     if (idx !== lastTickIdx) {
       lastTickIdx = idx;
       audio.tick();
@@ -988,9 +1419,8 @@ function scheduleFrame(fn) {
   else setTimeout(() => fn(performance.now()), 250);
 }
 
-function settleWheelOn(winnerIdx, count) {
-  const seg = (Math.PI * 2) / count;
-  wheelAngle = -Math.PI / 2 - (winnerIdx * seg + seg / 2);
+function settleWheelOn(arc) {
+  wheelAngle = -Math.PI / 2 - (arc.start + arc.end) / 2;
 }
 
 /* ============================== Pick flow ============================== */
@@ -999,9 +1429,9 @@ let currentWinner = null;
 
 function finishPick(winner) {
   currentWinner = winner;
-  state.history.push({ name: winner.name, class: state.classLabel, ts: Date.now() });
+  state.history.push({ name: winner.name, class: currentLabel(), ts: Date.now() });
   if (state.history.length > HISTORY_CAP) state.history.splice(0, state.history.length - HISTORY_CAP);
-  saveLocal();
+  saveData();
   audio.chime();
   winnerName.textContent = winner.name;
   modalBackdrop.hidden = false;
@@ -1013,7 +1443,7 @@ function finishPick(winner) {
 function closeModal(remove) {
   if (currentWinner && remove) {
     currentWinner.removed = true;
-    saveLocal();
+    saveData();
   }
   currentWinner = null;
   modalBackdrop.hidden = true;
@@ -1113,8 +1543,10 @@ const confetti = (() => {
 
 /* ============================== History ============================== */
 
+/* Manual save: the full data file (all classes + history + settings), the
+   universal fallback when live file sync isn't available or wanted. */
 function exportJson() {
-  download("history.json", JSON.stringify({ app: "namewheel", v: 1, history: state.history }, null, 2), "application/json");
+  download("namewheel-data.json", JSON.stringify(serialize(), null, 2), "application/json");
 }
 
 function exportCsv() {
@@ -1130,24 +1562,44 @@ function importHistoryFile(file) {
   file.text().then((text) => {
     let data;
     try { data = JSON.parse(text); } catch (_) { toast(t("toastBadJson")); return; }
+
+    // Full v2 data file: restore everything, but merge histories so an
+    // import never silently discards picks made on this machine.
+    if (data && data.app === "namewheel" && data.v === 2 && Array.isArray(data.classes)) {
+      const localHistory = state.history;
+      if (!deserialize(data)) { toast(t("toastNotDataFile")); return; }
+      mergeHistory(localHistory);
+      saveData();
+      applyTheme();
+      applyI18n();
+      renderAll();
+      toast(t("toastDataImported", { n: state.classes.length }));
+      return;
+    }
+
     const incoming = Array.isArray(data.history) ? data.history : Array.isArray(data) ? data : null;
     if (!incoming) { toast(t("toastNoHistory")); return; }
-    const have = new Set(state.history.map((h) => h.ts + "|" + h.name));
-    let added = 0;
-    for (const h of incoming) {
-      if (!h || typeof h.name !== "string" || typeof h.ts !== "number") continue;
-      const key = h.ts + "|" + h.name;
-      if (have.has(key)) continue;
-      have.add(key);
-      state.history.push({ name: h.name, class: typeof h.class === "string" ? h.class : "", ts: h.ts });
-      added++;
-    }
-    state.history.sort((a, b) => a.ts - b.ts);
-    if (state.history.length > HISTORY_CAP) state.history.splice(0, state.history.length - HISTORY_CAP);
-    saveLocal();
+    const added = mergeHistory(incoming);
+    saveData();
     renderHistory();
     toast(added ? t("toastImported", { n: added }) : t("toastNothingNew"));
   });
+}
+
+/* Dedupes on ts|name; returns how many entries were new. */
+function mergeHistory(entries) {
+  const have = new Set(state.history.map((h) => h.ts + "|" + h.name));
+  let added = 0;
+  for (const h of sanitizeHistory(entries)) {
+    const key = h.ts + "|" + h.name;
+    if (have.has(key)) continue;
+    have.add(key);
+    state.history.push(h);
+    added++;
+  }
+  state.history.sort((a, b) => a.ts - b.ts);
+  if (state.history.length > HISTORY_CAP) state.history.splice(0, state.history.length - HISTORY_CAP);
+  return added;
 }
 
 function download(filename, content, type) {
@@ -1186,10 +1638,8 @@ function applyI18n() {
   document.title = t("appTitle");
   document.querySelector(".side header h1").textContent = t("appTitle");
   document.getElementById("loadBtn").textContent = t("loadRoster");
-  const newClassBtn = document.getElementById("newClassBtn");
-  newClassBtn.textContent = t("newClass");
-  newClassBtn.title = t("newClassTitle");
   document.getElementById("hintText").innerHTML = t("hint");
+  document.getElementById("classList").setAttribute("aria-label", t("classesAria"));
   nameList.setAttribute("aria-label", t("rosterAria"));
   nameList.dataset.empty = t("noRosterYet");
   document.getElementById("shuffleBtn").textContent = t("shuffle");
@@ -1197,10 +1647,14 @@ function applyI18n() {
   resetBtn.textContent = t("resetRound");
   resetBtn.title = t("resetRoundTitle");
   document.querySelector('label.opt input#autoRemove').parentElement.lastChild.textContent = " " + t("autoRemoveLabel");
+  document.querySelector('label.opt input#weighted').parentElement.lastChild.textContent = " " + t("weightedLabel");
   sideToggle.title = t("sideToggleTitle");
   const langBtn = document.getElementById("langBtn");
   langBtn.textContent = state.lang === "zh" ? "EN" : "中";
   langBtn.title = t("langTitle");
+  themeBtn.title = state.theme === "dark" ? t("themeTitleLight") : t("themeTitleDark");
+  timerViewBtn.title = t("timerViewTitle");
+  document.getElementById("helpBtn").title = t("helpTitle");
   muteBtn.title = t("muteTitle");
   historyBtn.title = t("historyTitle");
   fsBtn.title = t("fsTitle");
@@ -1227,17 +1681,27 @@ function applyI18n() {
   eqHeading.append(equityScope);
   logList.previousElementSibling.textContent = t("recentPicks");
   document.querySelector(".drop-overlay").textContent = t("dropText");
+  document.getElementById("bannerText").textContent = fsApiAvailable ? t("bannerText") : t("bannerTextManual");
+  document.getElementById("openDataBtn").textContent = t("openData");
+  document.getElementById("createDataBtn").textContent = t("createData");
+  document.getElementById("timerResetBtn").textContent = t("timerReset");
+  document.getElementById("helpClose").textContent = t("helpClose");
+  if (!helpBackdrop.hidden) document.getElementById("helpContent").innerHTML = t("helpBody");
+  timerRender(); // Start/Pause button label
 }
 
 function renderAll() {
-  classLabelEl.textContent = state.classLabel || t("noClass");
+  classLabelEl.textContent = currentLabel() || t("noClass");
+  const roster = currentRoster();
   const el = eligible().length;
-  countLabel.textContent = state.roster.length
-    ? t("countLabel", { n: el, total: state.roster.length })
+  countLabel.textContent = roster.length
+    ? t("countLabel", { n: el, total: roster.length })
     : "";
-  emptyNote.hidden = state.roster.length > 0;
+  emptyNote.hidden = roster.length > 0;
   spinBtn.disabled = el === 0 || spinning;
   document.getElementById("autoRemove").checked = state.autoRemove;
+  document.getElementById("weighted").checked = state.weighted;
+  renderClasses();
   renderNames();
   renderHistory();
   drawWheel();
@@ -1245,7 +1709,7 @@ function renderAll() {
 
 function renderNames() {
   nameList.textContent = "";
-  state.roster.forEach((r, i) => {
+  currentRoster().forEach((r, i) => {
     const row = document.createElement("div");
     row.className = "name-row" + (r.removed ? " removed" : "") + (r.absent ? " absent" : "");
     const cb = document.createElement("input");
@@ -1254,7 +1718,7 @@ function renderNames() {
     cb.title = r.absent ? t("cbAbsentTitle") : t("cbPresentTitle");
     cb.addEventListener("change", () => {
       r.absent = !cb.checked;
-      saveLocal();
+      saveData();
       renderAll();
     });
     const nm = document.createElement("span");
@@ -1277,7 +1741,7 @@ function renderNames() {
 }
 
 function renderHistory() {
-  const scope = state.classLabel || "";
+  const scope = currentLabel() || "";
   equityScope.textContent = scope || t("allClasses");
   const inScope = scope ? state.history.filter((h) => h.class === scope) : state.history;
 
@@ -1285,7 +1749,7 @@ function renderHistory() {
   for (const h of inScope) counts.set(h.name, (counts.get(h.name) || 0) + 1);
   // Roster members with zero picks matter for equity — show them at the top? No:
   // sort ascending by count so the least-picked students lead the list.
-  const rosterNames = state.roster.map((r) => r.name);
+  const rosterNames = currentRoster().map((r) => r.name);
   for (const n of rosterNames) if (!counts.has(n)) counts.set(n, 0);
   const rows = [...counts.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]));
 
@@ -1327,24 +1791,51 @@ rosterInput.addEventListener("change", () => {
   rosterInput.value = "";
 });
 
-document.getElementById("newClassBtn").addEventListener("click", () => {
-  if (state.roster.length && !confirm(t("confirmClearRoster"))) return;
-  state.classLabel = "";
-  state.roster = [];
-  saveLocal();
-  renderAll();
-});
+function renderClasses() {
+  const list = document.getElementById("classList");
+  list.textContent = "";
+  for (const c of state.classes) {
+    const row = document.createElement("button");
+    row.className = "class-row" + (c.id === state.activeClassId ? " active" : "");
+    const label = document.createElement("span");
+    label.className = "cl";
+    label.textContent = c.label;
+    label.title = c.label;
+    const del = document.createElement("span");
+    del.className = "del";
+    del.textContent = "✕";
+    del.title = t("deleteClassTitle");
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!confirm(t("confirmDeleteClass", { label: c.label }))) return;
+      state.classes = state.classes.filter((x) => x.id !== c.id);
+      if (state.activeClassId === c.id) {
+        state.activeClassId = state.classes[0] ? state.classes[0].id : null;
+      }
+      saveData();
+      renderAll();
+    });
+    row.append(label, del);
+    row.addEventListener("click", () => {
+      if (state.activeClassId === c.id) return;
+      state.activeClassId = c.id;
+      saveData();
+      renderAll();
+    });
+    list.append(row);
+  }
+}
 
 document.getElementById("shuffleBtn").addEventListener("click", shuffleRoster);
 document.getElementById("resetBtn").addEventListener("click", () => {
-  state.roster.forEach((r) => { r.removed = false; });
-  saveLocal();
+  currentRoster().forEach((r) => { r.removed = false; });
+  saveData();
   renderAll();
   toast(t("toastAllBack"));
 });
 document.getElementById("autoRemove").addEventListener("change", (e) => {
   state.autoRemove = e.target.checked;
-  saveLocal();
+  saveData();
 });
 
 spinBtn.addEventListener("click", spin);
@@ -1373,9 +1864,151 @@ narrow.addEventListener("change", () => {
 
 document.getElementById("langBtn").addEventListener("click", () => {
   state.lang = state.lang === "zh" ? "en" : "zh";
-  saveLocal();
+  saveData();
   applyI18n();
   renderAll();
+});
+
+/* ---------- Theme ---------- */
+
+const themeBtn = document.getElementById("themeBtn");
+function applyTheme() {
+  document.documentElement.dataset.theme = state.theme;
+  themeBtn.textContent = state.theme === "dark" ? "☀️" : "🌙";
+  themeBtn.setAttribute("aria-pressed", String(state.theme === "dark"));
+  drawWheel(); // canvas colors come from CSS variables
+}
+themeBtn.addEventListener("click", () => {
+  state.theme = state.theme === "dark" ? "light" : "dark";
+  saveData();
+  applyTheme();
+  applyI18n();
+});
+
+/* ---------- Timer screen ---------- */
+
+/* Wall-clock countdown (endTime-based) so it keeps time in hidden tabs,
+   like the spin animation. Nothing here is persisted. */
+const timerView = document.getElementById("timerView");
+const timerDisplay = document.getElementById("timerDisplay");
+const timerStartBtn = document.getElementById("timerStartBtn");
+const timerViewBtn = document.getElementById("timerViewBtn");
+const timer = {
+  duration: 5 * 60 * 1000,   // last chosen length, ms
+  endTime: 0,                // wall clock, 0 = not running
+  remaining: 5 * 60 * 1000,  // when paused
+  interval: 0,
+  running: false,
+};
+
+function timerRender() {
+  const ms = timer.running ? Math.max(0, timer.endTime - Date.now()) : timer.remaining;
+  const s = Math.round(ms / 1000);
+  timerDisplay.textContent = `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  timerStartBtn.textContent = timer.running ? t("timerPause") : t("timerStart");
+}
+
+function timerSet(ms) {
+  timerStop();
+  timer.duration = ms;
+  timer.remaining = ms;
+  timerView.classList.remove("flash");
+  timerRender();
+}
+
+function timerStop() {
+  timer.running = false;
+  clearInterval(timer.interval);
+}
+
+function timerToggle() {
+  if (timer.running) {
+    timer.remaining = Math.max(0, timer.endTime - Date.now());
+    timerStop();
+  } else {
+    if (timer.remaining <= 0) timer.remaining = timer.duration;
+    timerView.classList.remove("flash");
+    timer.endTime = Date.now() + timer.remaining;
+    timer.running = true;
+    audio.prime();
+    timer.interval = setInterval(() => {
+      if (timer.endTime - Date.now() <= 0) {
+        timerStop();
+        timer.remaining = 0;
+        timerRender();
+        timerView.classList.add("flash"); // flashes until reset/re-set
+        audio.chime();
+        return;
+      }
+      timerRender();
+    }, 200);
+  }
+  timerRender();
+}
+
+timerStartBtn.addEventListener("click", timerToggle);
+document.getElementById("timerResetBtn").addEventListener("click", () => timerSet(timer.duration));
+for (const b of document.querySelectorAll(".timer-presets [data-min]")) {
+  b.addEventListener("click", () => timerSet(parseInt(b.dataset.min, 10) * 60 * 1000));
+}
+const timerCustom = document.getElementById("timerCustom");
+timerCustom.addEventListener("change", () => {
+  const m = timerCustom.value.trim().match(/^(\d{1,3})(?::([0-5]?\d))?$/);
+  if (!m) { timerCustom.value = ""; return; }
+  const ms = (parseInt(m[1], 10) * 60 + (m[2] ? parseInt(m[2], 10) : 0)) * 1000;
+  if (ms > 0) timerSet(ms);
+});
+
+/* ---------- Wheel <-> timer view switch ---------- */
+
+let timerMode = false;
+function applyView() {
+  timerView.hidden = !timerMode;
+  document.querySelector(".wheel-wrap").hidden = timerMode;
+  spinBtn.hidden = timerMode;
+  timerViewBtn.setAttribute("aria-pressed", String(timerMode));
+  if (!timerMode) drawWheel();
+  else timerRender();
+}
+timerViewBtn.addEventListener("click", () => {
+  timerMode = !timerMode;
+  applyView();
+});
+
+/* ---------- Help ---------- */
+
+const helpBackdrop = document.getElementById("helpBackdrop");
+document.getElementById("helpBtn").addEventListener("click", () => {
+  document.getElementById("helpContent").innerHTML = t("helpBody");
+  helpBackdrop.hidden = false;
+  document.getElementById("helpClose").focus();
+});
+document.getElementById("helpClose").addEventListener("click", () => { helpBackdrop.hidden = true; });
+helpBackdrop.addEventListener("click", (e) => { if (e.target === helpBackdrop) helpBackdrop.hidden = true; });
+
+/* ---------- Data-file banner ---------- */
+
+const dataBanner = document.getElementById("dataBanner");
+function initBanner() {
+  if (dataFileHandle) return;
+  dataBanner.hidden = false;
+  const openBtn = document.getElementById("openDataBtn");
+  const createBtn = document.getElementById("createDataBtn");
+  if (fsApiAvailable) {
+    openBtn.addEventListener("click", openDataFile);
+    createBtn.addEventListener("click", createDataFile);
+  } else {
+    // No File System Access API: banner just points at manual save/import.
+    openBtn.hidden = true;
+    createBtn.hidden = true;
+  }
+}
+document.getElementById("bannerDismiss").addEventListener("click", hideBanner);
+
+document.getElementById("weighted").addEventListener("change", (e) => {
+  state.weighted = e.target.checked;
+  saveData();
+  drawWheel();
 });
 
 const muteBtn = document.getElementById("muteBtn");
@@ -1383,7 +2016,7 @@ muteBtn.addEventListener("click", () => {
   state.muted = !state.muted;
   muteBtn.textContent = state.muted ? "🔇" : "🔊";
   muteBtn.setAttribute("aria-pressed", String(state.muted));
-  saveLocal();
+  saveData();
 });
 
 const historyBtn = document.getElementById("historyBtn");
@@ -1417,7 +2050,7 @@ historyInput.addEventListener("change", () => {
 document.getElementById("clearHistory").addEventListener("click", () => {
   if (!confirm(t("confirmClearHistory"))) return;
   state.history = [];
-  saveLocal();
+  saveData();
   renderHistory();
 });
 
@@ -1446,9 +2079,15 @@ document.addEventListener("drop", (e) => {
 /* Keyboard: Space = spin, Enter = highlighted modal choice, Esc = keep, F = fullscreen. */
 document.addEventListener("keydown", (e) => {
   const inModal = !modalBackdrop.hidden;
+  if (!helpBackdrop.hidden && (e.key === "Escape" || e.key === "Enter")) {
+    e.preventDefault();
+    helpBackdrop.hidden = true;
+    return;
+  }
   if (e.key === " " && !inModal && document.activeElement.tagName !== "INPUT") {
     e.preventDefault();
-    spin();
+    if (timerMode) timerToggle();
+    else spin();
   } else if (inModal && e.key === "Enter") {
     e.preventDefault();
     closeModal(state.autoRemove);
@@ -1472,11 +2111,14 @@ autoRemoveBox.addEventListener("change", syncModalPrimary);
 /* ============================== Boot ============================== */
 
 loadLocal();
+if (state.classes.length === 0) loadDemoClass();
 muteBtn.textContent = state.muted ? "🔇" : "🔊";
 muteBtn.setAttribute("aria-pressed", String(state.muted));
 syncModalPrimary();
+applyTheme();
 applyI18n();
 renderAll();
+initBanner();
 </script>
 </body>
 </html>
