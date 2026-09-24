@@ -603,6 +603,7 @@
     <div class="actions">
       <button class="btn primary" id="removeBtn">Remove from wheel</button>
       <button class="btn" id="keepBtn">Keep on wheel</button>
+      <button class="btn" id="absentBtn">Absent today</button>
     </div>
     <div class="keyhint">Enter = highlighted choice &nbsp;·&nbsp; Esc = keep</div>
   </div>
@@ -686,7 +687,12 @@ function sanitizeRoster(roster) {
 function sanitizeHistory(history) {
   return (Array.isArray(history) ? history : [])
     .filter((h) => h && typeof h.name === "string" && typeof h.ts === "number")
-    .map((h) => ({ name: h.name, class: typeof h.class === "string" ? h.class : "", ts: h.ts }));
+    .map((h) => ({
+      name: h.name,
+      class: typeof h.class === "string" ? h.class : "",
+      ts: h.ts,
+      ...(h.absent === true ? { absent: true } : {}),
+    }));
 }
 
 /* Accepts a v2 data object; returns false if the shape is wrong. */
@@ -751,6 +757,8 @@ const I18N = {
     wheelChooses: "The wheel chooses",
     removeFromWheel: "Remove from wheel",
     keepOnWheel: "Keep on wheel",
+    absentBtn: "Absent today",
+    toastMarkedAbsent: "{name} marked absent — logged for your attendance records.",
     keyhint: "Enter = highlighted choice  ·  Esc = keep",
     historyHeading: "History & equity",
     closeTitle: "Close",
@@ -803,6 +811,7 @@ const I18N = {
       <ul>
         <li><strong>Load roster…</strong> — a .txt file (one name per line) or a SchoolPal 学生名单 .xlsx export. Each file becomes a class in the list; click a class to switch.</li>
         <li>Uncheck a student to mark them absent today. <strong>SPIN</strong> or <kbd>Space</kbd> picks someone.</li>
+        <li>Wheel picked someone who turns out to be absent? Hit <strong>Absent today</strong> on the result — it marks them absent, logs it in the history and CSV (handy for fixing attendance in SchoolPal later), and doesn't count against their turn.</li>
       </ul>
       <h3>Keeping your data on the USB</h3>
       <p>Classroom computers may be wiped, so the app saves to a file called <strong>namewheel-data.json</strong> that should live on your USB drive. Open it when the banner asks (once per session) and every change saves automatically. No banner buttons? Use <strong>Save data file</strong> / <strong>Import…</strong> in the 📋 panel instead.</p>
@@ -847,6 +856,8 @@ const I18N = {
     wheelChooses: "转盘选中",
     removeFromWheel: "从转盘移除",
     keepOnWheel: "留在转盘",
+    absentBtn: "今日缺席",
+    toastMarkedAbsent: "已把 {name} 标记为缺席 — 已记入历史，方便核对考勤。",
     keyhint: "回车 = 高亮选项  ·  Esc = 保留",
     historyHeading: "历史与均衡",
     closeTitle: "关闭",
@@ -899,6 +910,7 @@ const I18N = {
       <ul>
         <li><strong>加载名单…</strong> — .txt 文件（每行一个名字）或 SchoolPal 导出的学生名单 .xlsx。每个文件成为列表中的一个班级；点击即可切换。</li>
         <li>取消勾选可把学生标为今日缺席。<strong>开转</strong> 或按<kbd>空格</kbd>抽人。</li>
+        <li>转盘抽到的学生临时缺席？在结果上点<strong>今日缺席</strong> — 会把该学生标为缺席并记入历史和 CSV（方便之后在 SchoolPal 补记考勤），且不计入被抽次数。</li>
       </ul>
       <h3>把数据保存在U盘上</h3>
       <p>教室电脑可能被定期清空，所以应用会把数据保存到一个叫 <strong>namewheel-data.json</strong> 的文件里，请把它放在U盘上。每次打开应用时按横幅提示打开该文件（每次会话一次），之后所有更改自动保存。没有横幅按钮？改用 📋 面板中的<strong>保存数据文件</strong>和<strong>导入…</strong>。</p>
@@ -1287,7 +1299,8 @@ function pickWeights(names) {
   const counts = new Map();
   const label = currentLabel();
   for (const h of state.history) {
-    if (h.class === label) counts.set(h.name, (counts.get(h.name) || 0) + 1);
+    // Absent picks don't count — the student never actually got asked.
+    if (h.class === label && !h.absent) counts.set(h.name, (counts.get(h.name) || 0) + 1);
   }
   return names.map((r) => 1 / ((counts.get(r.name) || 0) + 1));
 }
@@ -1459,10 +1472,12 @@ function settleWheelOn(arc) {
 /* ============================== Pick flow ============================== */
 
 let currentWinner = null;
+let currentPickEntry = null;
 
 function finishPick(winner) {
   currentWinner = winner;
-  state.history.push({ name: winner.name, class: currentLabel(), ts: Date.now() });
+  currentPickEntry = { name: winner.name, class: currentLabel(), ts: Date.now() };
+  state.history.push(currentPickEntry);
   if (state.history.length > HISTORY_CAP) state.history.splice(0, state.history.length - HISTORY_CAP);
   saveData();
   audio.chime();
@@ -1473,12 +1488,21 @@ function finishPick(winner) {
   renderHistory();
 }
 
-function closeModal(remove) {
-  if (currentWinner && remove) {
+/* mode: "remove" | "keep" | "absent". Absent = the pick found an ad-hoc
+   absence: mark the student absent for today and flag the history entry so
+   it shows in the log/CSV (for SchoolPal attendance reconciliation) without
+   counting toward equity — they never actually got asked. */
+function closeModal(mode) {
+  if (currentWinner && mode === "remove") {
     currentWinner.removed = true;
-    saveData();
+  } else if (currentWinner && mode === "absent") {
+    currentWinner.absent = true;
+    if (currentPickEntry) currentPickEntry.absent = true;
+    toast(t("toastMarkedAbsent", { name: currentWinner.name }));
   }
+  saveData();
   currentWinner = null;
+  currentPickEntry = null;
   modalBackdrop.hidden = true;
   confetti.stop();
   renderAll();
@@ -1584,9 +1608,9 @@ function exportJson() {
 
 function exportCsv() {
   const esc = (s) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
-  const rows = ["Name,Class,When"];
+  const rows = ["Name,Class,When,Absent"];
   for (const h of state.history) {
-    rows.push([esc(h.name), esc(h.class || ""), new Date(h.ts).toLocaleString()].join(","));
+    rows.push([esc(h.name), esc(h.class || ""), new Date(h.ts).toLocaleString(), h.absent ? "Yes" : ""].join(","));
   }
   download("history.csv", "﻿" + rows.join("\r\n"), "text/csv");
 }
@@ -1699,6 +1723,7 @@ function applyI18n() {
   document.querySelector(".modal .label").textContent = t("wheelChooses");
   removeBtn.textContent = t("removeFromWheel");
   keepBtn.textContent = t("keepOnWheel");
+  document.getElementById("absentBtn").textContent = t("absentBtn");
   document.querySelector(".modal .keyhint").textContent = t("keyhint");
   document.querySelector("#drawer header h2").textContent = t("historyHeading");
   document.getElementById("drawerClose").title = t("closeTitle");
@@ -1782,7 +1807,10 @@ function renderHistory() {
   const inScope = scope ? state.history.filter((h) => h.class === scope) : state.history;
 
   const counts = new Map();
-  for (const h of inScope) counts.set(h.name, (counts.get(h.name) || 0) + 1);
+  for (const h of inScope) {
+    if (h.absent) continue; // absent picks don't count toward equity
+    counts.set(h.name, (counts.get(h.name) || 0) + 1);
+  }
   // Roster members with zero picks matter for equity — show them at the top? No:
   // sort ascending by count so the least-picked students lead the list.
   const rosterNames = currentRoster().map((r) => r.name);
@@ -1805,6 +1833,12 @@ function renderHistory() {
     div.className = "log-row";
     div.innerHTML = `<span class="n"></span><span class="t"></span>`;
     div.querySelector(".n").textContent = h.name;
+    if (h.absent) {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = t("tagAbsent");
+      div.insertBefore(tag, div.querySelector(".t"));
+    }
     div.querySelector(".t").textContent = new Date(h.ts).toLocaleString(dateLocale(), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
     logList.append(div);
   }
@@ -1875,8 +1909,9 @@ document.getElementById("autoRemove").addEventListener("change", (e) => {
 });
 
 spinBtn.addEventListener("click", spin);
-removeBtn.addEventListener("click", () => closeModal(true));
-keepBtn.addEventListener("click", () => closeModal(false));
+removeBtn.addEventListener("click", () => closeModal("remove"));
+keepBtn.addEventListener("click", () => closeModal("keep"));
+document.getElementById("absentBtn").addEventListener("click", () => closeModal("absent"));
 
 const sideToggle = document.getElementById("sideToggle");
 const narrow = matchMedia("(max-width: 720px)");
@@ -2140,9 +2175,9 @@ document.addEventListener("keydown", (e) => {
     else spin();
   } else if (inModal && e.key === "Enter") {
     e.preventDefault();
-    closeModal(state.autoRemove);
+    closeModal(state.autoRemove ? "remove" : "keep");
   } else if (inModal && e.key === "Escape") {
-    closeModal(false);
+    closeModal("keep");
   } else if (!inModal && (e.key === "f" || e.key === "F") && document.activeElement.tagName !== "INPUT") {
     toggleFullscreen();
   }
