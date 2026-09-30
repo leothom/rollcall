@@ -29,7 +29,9 @@ real home of your data:
 
 - When the banner asks, **Open your data file** (`namewheel-data.json` on the USB) —
   then every change saves to it automatically. First time: **Create data file**.
-  (Requires Edge/Chrome; one click per session.)
+  On the same computer the app remembers the file and reconnects by itself on the
+  next open (at most a one-tap **Reconnect**); a freshly wiped machine asks once.
+  (Requires Edge/Chrome.)
 - On browsers without file access, use **Save data file** / **Import…** in the 📋
   panel instead. The saved JSON carries all classes, history, and settings.
 

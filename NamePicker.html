@@ -783,6 +783,8 @@ const I18N = {
     bannerTextManual: "This browser can't sync to a file directly — use Save data file / Import in the 📋 panel to keep everything on your USB.",
     openData: "Open data file…",
     createData: "Create data file…",
+    bannerReconnect: "Your data file from last time is ready — reconnect to keep saving to it.",
+    reconnectData: "Reconnect",
     timerStart: "Start",
     timerPause: "Pause",
     timerReset: "Reset",
@@ -814,7 +816,7 @@ const I18N = {
         <li>Wheel picked someone who turns out to be absent? Hit <strong>Absent today</strong> on the result — it marks them absent, logs it in the history and CSV (handy for fixing attendance in SchoolPal later), and doesn't count against their turn.</li>
       </ul>
       <h3>Keeping your data on the USB</h3>
-      <p>Classroom computers may be wiped, so the app saves to a file called <strong>namewheel-data.json</strong> that should live on your USB drive. Open it when the banner asks (once per session) and every change saves automatically. No banner buttons? Use <strong>Save data file</strong> / <strong>Import…</strong> in the 📋 panel instead.</p>
+      <p>Classroom computers may be wiped, so the app saves to a file called <strong>namewheel-data.json</strong> that should live on your USB drive. Open it once when the banner asks — after that the app remembers it and reconnects automatically (at most a one-tap Reconnect), and every change saves by itself. No banner buttons? Use <strong>Save data file</strong> / <strong>Import…</strong> in the 📋 panel instead.</p>
       <h3>Favor least-picked</h3>
       <p>Off by default, the wheel is perfectly uniform. Switched on, students who have been picked less often get bigger slices — the slice size always shows the true odds.</p>
       <h3>Keyboard</h3>
@@ -882,6 +884,8 @@ const I18N = {
     bannerTextManual: "此浏览器不支持直接同步到文件 — 请用 📋 面板中的「保存数据文件 / 导入」把数据保存到U盘。",
     openData: "打开数据文件…",
     createData: "新建数据文件…",
+    bannerReconnect: "找到上次的数据文件 — 点击重新连接即可继续自动保存。",
+    reconnectData: "重新连接",
     timerStart: "开始",
     timerPause: "暂停",
     timerReset: "重置",
@@ -913,7 +917,7 @@ const I18N = {
         <li>转盘抽到的学生临时缺席？在结果上点<strong>今日缺席</strong> — 会把该学生标为缺席并记入历史和 CSV（方便之后在 SchoolPal 补记考勤），且不计入被抽次数。</li>
       </ul>
       <h3>把数据保存在U盘上</h3>
-      <p>教室电脑可能被定期清空，所以应用会把数据保存到一个叫 <strong>namewheel-data.json</strong> 的文件里，请把它放在U盘上。每次打开应用时按横幅提示打开该文件（每次会话一次），之后所有更改自动保存。没有横幅按钮？改用 📋 面板中的<strong>保存数据文件</strong>和<strong>导入…</strong>。</p>
+      <p>教室电脑可能被定期清空，所以应用会把数据保存到一个叫 <strong>namewheel-data.json</strong> 的文件里，请把它放在U盘上。第一次按横幅提示打开该文件后，应用会记住它并自动重新连接（最多点一次「重新连接」），所有更改自动保存。没有横幅按钮？改用 📋 面板中的<strong>保存数据文件</strong>和<strong>导入…</strong>。</p>
       <h3>优先少抽到的学生</h3>
       <p>默认关闭时转盘完全均匀。开启后，被抽次数少的学生占的扇区更大 — 扇区大小始终如实显示真实概率。</p>
       <h3>键盘</h3>
@@ -951,6 +955,32 @@ let writeFailed = false;
 const fsApiAvailable = typeof window.showOpenFilePicker === "function"
   && typeof window.showSaveFilePicker === "function";
 
+/* File handles survive page reloads only via IndexedDB. Storing the handle
+   lets the next session re-open the teacher's data file automatically (or
+   with one Reconnect click if the browser insists on a fresh gesture) —
+   no file picker after the first time on a given machine. Best-effort:
+   every failure just falls back to the banner. */
+const HANDLE_DB = "namewheel.handles";
+function idbStore(mode, fn) {
+  return new Promise((resolve) => {
+    try {
+      const open = indexedDB.open(HANDLE_DB, 1);
+      open.onupgradeneeded = () => open.result.createObjectStore("kv");
+      open.onerror = () => resolve(undefined);
+      open.onsuccess = () => {
+        try {
+          const tx = open.result.transaction("kv", mode);
+          const req = fn(tx.objectStore("kv"));
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => resolve(undefined);
+        } catch (_) { resolve(undefined); }
+      };
+    } catch (_) { resolve(undefined); }
+  });
+}
+const rememberHandle = (h) => idbStore("readwrite", (s) => s.put(h, "dataFile"));
+const recallHandle = () => idbStore("readonly", (s) => s.get("dataFile"));
+
 /* Called after every state change. localStorage immediately (best-effort,
    same-session refresh safety), data file debounced. */
 function saveData() {
@@ -975,22 +1005,29 @@ async function writeDataFile() {
   }
 }
 
+/* Reads the file behind a handle and makes it the live data file.
+   Returns false (without touching state) if it can't be read or parsed. */
+async function adoptDataFile(handle, toastKey) {
+  let data;
+  try { data = JSON.parse(await (await handle.getFile()).text()); }
+  catch (_) { return false; }
+  if (!deserialize(data)) { toastKey && toast(t("toastNotDataFile")); return false; }
+  dataFileHandle = handle;
+  rememberHandle(handle);
+  hideBanner();
+  applyTheme();
+  applyI18n();
+  renderAll();
+  if (toastKey) toast(t(toastKey));
+  return true;
+}
+
 async function openDataFile() {
   try {
     const [handle] = await window.showOpenFilePicker({
       types: [{ description: "Name Wheel data", accept: { "application/json": [".json"] } }],
     });
-    const file = await handle.getFile();
-    let data;
-    try { data = JSON.parse(await file.text()); }
-    catch (_) { toast(t("toastBadJson")); return; }
-    if (!deserialize(data)) { toast(t("toastNotDataFile")); return; }
-    dataFileHandle = handle;
-    hideBanner();
-    applyTheme();
-    applyI18n();
-    renderAll();
-    toast(t("toastFileOpened"));
+    if (!(await adoptDataFile(handle, "toastFileOpened"))) toast(t("toastBadJson"));
   } catch (_) { /* picker dismissed */ }
 }
 
@@ -1000,10 +1037,28 @@ async function createDataFile() {
       suggestedName: "namewheel-data.json",
       types: [{ description: "Name Wheel data", accept: { "application/json": [".json"] } }],
     });
+    rememberHandle(dataFileHandle);
     await writeDataFile();
     hideBanner();
     toast(t("toastFileCreated"));
   } catch (_) { /* picker dismissed */ }
+}
+
+/* Boot: try the remembered handle. Granted permission → load silently.
+   Permission needs a fresh gesture → banner becomes a one-click Reconnect.
+   No handle / anything failed → the normal open/create banner. */
+let reconnectHandle = null;
+async function restoreDataFile() {
+  if (fsApiAvailable) {
+    const handle = await recallHandle();
+    if (handle) {
+      let perm = "prompt";
+      try { perm = await handle.queryPermission({ mode: "readwrite" }); } catch (_) {}
+      if (perm === "granted" && await adoptDataFile(handle, "toastFileOpened")) return;
+      if (perm === "prompt") reconnectHandle = handle;
+    }
+  }
+  initBanner();
 }
 
 function hideBanner() {
@@ -1742,9 +1797,12 @@ function applyI18n() {
   eqHeading.append(equityScope);
   logList.previousElementSibling.textContent = t("recentPicks");
   document.querySelector(".drop-overlay").textContent = t("dropText");
-  document.getElementById("bannerText").textContent = fsApiAvailable ? t("bannerText") : t("bannerTextManual");
-  document.getElementById("openDataBtn").textContent = t("openData");
-  document.getElementById("createDataBtn").textContent = t("createData");
+  document.getElementById("bannerText").textContent =
+    !fsApiAvailable ? t("bannerTextManual") : reconnectHandle ? t("bannerReconnect") : t("bannerText");
+  document.getElementById("openDataBtn").textContent = reconnectHandle ? t("reconnectData") : t("openData");
+  const createBtn = document.getElementById("createDataBtn");
+  createBtn.textContent = t("createData");
+  if (fsApiAvailable) createBtn.hidden = !!reconnectHandle;
   document.getElementById("timerResetBtn").textContent = t("timerReset");
   document.getElementById("helpClose").textContent = t("helpClose");
   if (!helpBackdrop.hidden) document.getElementById("helpContent").innerHTML = t("helpBody");
@@ -2080,13 +2138,26 @@ function initBanner() {
   const openBtn = document.getElementById("openDataBtn");
   const createBtn = document.getElementById("createDataBtn");
   if (fsApiAvailable) {
-    openBtn.addEventListener("click", openDataFile);
+    openBtn.addEventListener("click", async () => {
+      if (reconnectHandle) {
+        // One-click resume: re-request permission on the remembered handle.
+        const handle = reconnectHandle;
+        reconnectHandle = null;
+        try {
+          const perm = await handle.requestPermission({ mode: "readwrite" });
+          if (perm === "granted" && await adoptDataFile(handle, "toastFileOpened")) return;
+        } catch (_) { /* fall through to the picker */ }
+        applyI18n(); // banner back to normal open/create wording
+      }
+      openDataFile();
+    });
     createBtn.addEventListener("click", createDataFile);
   } else {
     // No File System Access API: banner just points at manual save/import.
     openBtn.hidden = true;
     createBtn.hidden = true;
   }
+  applyI18n(); // banner text depends on reconnect vs first-open mode
 }
 document.getElementById("bannerDismiss").addEventListener("click", hideBanner);
 
@@ -2203,7 +2274,7 @@ syncModalPrimary();
 applyTheme();
 applyI18n();
 renderAll();
-initBanner();
+restoreDataFile();
 </script>
 </body>
 </html>
