@@ -947,7 +947,9 @@ function t(key, vars) {
 }
 
 function dateLocale() {
-  return state.lang === "zh" ? "zh-CN" : [];
+  // Explicit locales: the browser's own locale (e.g. a zh-CN Edge) must not
+  // leak Chinese date formats into the English UI, or vice versa.
+  return state.lang === "zh" ? "zh-CN" : "en-US";
 }
 
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1076,10 +1078,11 @@ function hideBanner() {
 }
 
 /* Session boot: v2 localStorage, else migrate v1 (single roster). */
+let hadSavedState = false;
 function loadLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw && deserialize(JSON.parse(raw))) return;
+    if (raw && deserialize(JSON.parse(raw))) { hadSavedState = true; return; }
   } catch (_) { /* fall through */ }
   try {
     const raw = localStorage.getItem(STORAGE_KEY_V1);
@@ -1095,6 +1098,7 @@ function loadLocal() {
     state.autoRemove = s.autoRemove !== false;
     state.muted = !!s.muted;
     state.lang = s.lang === "zh" ? "zh" : "en";
+    hadSavedState = true;
     localStorage.removeItem(STORAGE_KEY_V1);
     saveData();
   } catch (_) { /* corrupted or blocked — start fresh */ }
@@ -2281,6 +2285,10 @@ autoRemoveBox.addEventListener("change", syncModalPrimary);
 
 loadLocal();
 if (state.classes.length === 0) loadDemoClass();
+// True first run (no saved state anywhere): follow the browser's language —
+// a Chinese-default Edge starts in Chinese. The 中/EN choice is saved with
+// everything else, so this only ever applies once.
+if (!hadSavedState && (navigator.language || "").toLowerCase().startsWith("zh")) state.lang = "zh";
 muteBtn.textContent = state.muted ? "🔇" : "🔊";
 muteBtn.setAttribute("aria-pressed", String(state.muted));
 syncModalPrimary();
