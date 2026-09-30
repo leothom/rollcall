@@ -1,8 +1,12 @@
 <!doctype html>
-<html lang="en">
+<!-- translate="no": the app translates itself (中/EN button). Browser
+     page-translators (Edge/Chrome "Translate this page?") must never run
+     here — they machine-translate student names and half the UI. -->
+<html lang="en" translate="no" class="notranslate">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="google" content="notranslate">
 <title>Name Wheel</title>
 <!--
   Name Wheel — offline classroom random-name picker.
@@ -785,6 +789,9 @@ const I18N = {
     createData: "Create data file…",
     bannerReconnect: "Your data file from last time is ready — reconnect to keep saving to it.",
     reconnectData: "Reconnect",
+    dismissTitle: "Dismiss",
+    timerCustomAria: "Custom time",
+    drawerAria: "Pick history",
     timerStart: "Start",
     timerPause: "Pause",
     timerReset: "Reset",
@@ -886,6 +893,9 @@ const I18N = {
     createData: "新建数据文件…",
     bannerReconnect: "找到上次的数据文件 — 点击重新连接即可继续自动保存。",
     reconnectData: "重新连接",
+    dismissTitle: "关闭提示",
+    timerCustomAria: "自定义时长",
+    drawerAria: "抽取历史",
     timerStart: "开始",
     timerPause: "暂停",
     timerReset: "重置",
@@ -1804,6 +1814,9 @@ function applyI18n() {
   createBtn.textContent = t("createData");
   if (fsApiAvailable) createBtn.hidden = !!reconnectHandle;
   document.getElementById("timerResetBtn").textContent = t("timerReset");
+  document.getElementById("bannerDismiss").title = t("dismissTitle");
+  document.getElementById("timerCustom").setAttribute("aria-label", t("timerCustomAria"));
+  drawer.setAttribute("aria-label", t("drawerAria"));
   document.getElementById("helpClose").textContent = t("helpClose");
   if (!helpBackdrop.hidden) document.getElementById("helpContent").innerHTML = t("helpBody");
   timerRender(); // Start/Pause button label
