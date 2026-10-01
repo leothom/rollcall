@@ -5,4 +5,5 @@ rosters/*.xlsx
 !rosters/sample-*.txt
 
 # Per-teacher data file (classes + pick history) — personal information.
+rollcall-data.json
 namewheel-data.json

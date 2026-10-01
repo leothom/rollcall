@@ -1,11 +1,11 @@
-# Name Wheel — USB Handover Release Design
+# RollCall (formerly Name Wheel) — USB Handover Release Design
 
 Date: 2026-09-23
 Status: Approved
 
 ## Context
 
-Name Wheel is a single-file offline classroom name picker (`NamePicker.html`).
+RollCall is a single-file offline classroom name picker (`RollCall.html`, originally `NamePicker.html`).
 It is being handed over to other teachers, English- and Chinese-speaking, who
 will each carry it on their own USB drive. Classroom machines are communal and
 may be wiped on a schedule, so **no data may be assumed to survive on the
@@ -19,7 +19,7 @@ machine/USB, and roster files are never committed to the repository.
 In this release:
 
 1. Multi-class list with click-to-switch
-2. Single data file on USB (`namewheel-data.json`) with live sync via the
+2. Single data file on USB (`rollcall-data.json`) with live sync via the
    File System Access API, manual save/import as universal fallback
 3. Dark mode
 4. Equity weighting ("favor least-picked"), off by default
@@ -39,7 +39,7 @@ One JSON file holds everything:
 
 ```json
 {
-  "app": "namewheel",
+  "app": "rollcall",
   "v": 2,
   "settings": {
     "lang": "en",

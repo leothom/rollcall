@@ -1,12 +1,12 @@
-# Name Wheel · 点名转盘
+# RollCall · 点名转盘
 
 Offline random name picker for the classroom. One HTML file, no install, no internet.
 The whole interface works in **English and 简体中文** (中 / EN button).
 
 ## USB setup
 
-1. Copy `NamePicker.html` to your USB stick.
-2. On any Windows computer: double-click `NamePicker.html` (opens in Edge/Chrome).
+1. Copy `RollCall.html` to your USB stick.
+2. On any Windows computer: double-click `RollCall.html` (opens in Edge/Chrome).
 3. First open shows a sample class — load your own roster to replace it.
 
 ## Rosters
@@ -27,7 +27,7 @@ Each file becomes a class in the sidebar list. Click a class to switch; ✕ remo
 Classroom computers are often shared and may be wiped, so treat the USB as the only
 real home of your data:
 
-- When the banner asks, **Open your data file** (`namewheel-data.json` on the USB) —
+- When the banner asks, **Open your data file** (`rollcall-data.json` on the USB) —
   then every change saves to it automatically. First time: **Create data file**.
   On the same computer the app remembers the file and reconnects by itself on the
   next open (at most a one-tap **Reconnect**); a freshly wiped machine asks once.
@@ -55,5 +55,11 @@ class. **Export CSV** opens in Excel/Sheets.
 ## Privacy (PIPL)
 
 Student names never leave the computer or the USB drive. The app has no network code
-at all — nothing is uploaded, ever. Keep roster files and `namewheel-data.json` on
+at all — nothing is uploaded, ever. Keep roster files and `rollcall-data.json` on
 your USB only, and never commit them to a public repository.
+
+## Upgrading from Name Wheel
+
+RollCall was previously called Name Wheel (`NamePicker.html`). Replace the old file on
+the USB with `RollCall.html`. Existing `namewheel-data.json` files still open and keep
+saving normally, and a browser that already used the old version keeps its classes.
